@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens. A single restrained, information-dense light theme.
+   Identifiers and spans use the mono family throughout the app. */
+:root {
+  --background: 210 20% 98%;
+  --foreground: 222 24% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 24% 12%;
+  --muted: 210 16% 94%;
+  --muted-foreground: 215 16% 42%;
+  --primary: 222 47% 24%;
+  --primary-foreground: 210 40% 98%;
+  --accent: 210 16% 92%;
+  --accent-foreground: 222 47% 24%;
+  --border: 214 20% 88%;
+  --input: 214 20% 88%;
+  --ring: 222 47% 40%;
+  --radius: 0.5rem;
+
+  /* Impact-type semantics */
+  --impact-new: 221 70% 46%;
+  --impact-modified: 38 92% 42%;
+  --impact-conflict: 0 72% 48%;
+  --impact-covered: 152 45% 38%;
+  --impact-none: 215 14% 55%;
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+  font-feature-settings: "cv11", "ss01";
+}

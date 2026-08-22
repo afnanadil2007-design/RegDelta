@@ -1,0 +1,100 @@
+[project]
+name = "regdelta"
+version = "0.1.0"
+description = "RegDelta — regulatory change-impact engine for SEBI circulars"
+requires-python = ">=3.11"
+
+# Dependencies are pinned by the brief's tech stack. Each is load-bearing:
+dependencies = [
+    "fastapi>=0.115,<0.116",          # HTTP layer
+    # Range spans the 0.36 change that replaced the event-loop policy hook with
+    # a loop factory; run_api.py owns loop creation so both sides work.
+    "uvicorn[standard]>=0.30,<0.53",  # ASGI server
+    "pydantic>=2.8,<3",               # models / validation
+    "pydantic-settings>=2.4,<3",      # env config, fail-fast validation
+    "sqlalchemy>=2.0.30,<2.1",        # ORM (2.0 style)
+    "alembic>=1.13,<1.14",            # migrations
+    "psycopg[binary]>=3.2,<4",        # Postgres driver (sync + async)
+    "pgvector>=0.3,<0.4",             # vector column type for SQLAlchemy
+    "sse-starlette>=2.1,<3",          # Server-Sent Events for assessment stream
+    "sentence-transformers>=3.0,<4",  # bge embeddings + reranker, CPU
+    "pymupdf>=1.24,<2",               # PDF text + render for vision fallback
+    "langgraph>=0.2,<0.3",            # agent orchestration
+    "anthropic>=0.34,<1",             # LLM gateway provider (Anthropic)
+    "openai>=1.40,<2",                # LLM gateway provider (Groq, OpenAI-compatible)
+    "httpx>=0.27,<1",                 # gateway transport
+    "fastmcp>=0.4",                   # MCP server
+    # fastmcp's transitive `mcp` package pulls a newer Starlette than FastAPI
+    # 0.115 supports; installing it unpinned breaks the API with
+    # "Router.__init__() got an unexpected keyword argument 'on_startup'".
+    # Pin to the range FastAPI accepts — the MCP server works fine on it.
+    "starlette>=0.40,<0.47",
+    "python-json-logger>=2.0,<3",     # structured JSON logs
+    "tenacity>=8.5,<9",               # retry/backoff in the gateway
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=0.23,<0.24",
+    "ruff>=0.6,<1",
+    "mypy>=1.11,<2",
+    "types-requests",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: `Depends(...)` in a parameter default is the documented FastAPI idiom.
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic revisions are generated; their line lengths and import order are not
+# ours to control, and reformatting them obscures the diff against autogenerate.
+"alembic/versions/*.py" = ["E501", "I001", "UP007", "UP035", "UP017"]
+
+[tool.mypy]
+python_version = "3.11"
+plugins = ["pydantic.mypy"]
+warn_unused_ignores = true
+disallow_untyped_defs = true
+# The brief requires mypy clean specifically on app/ai; enforced there.
+[[tool.mypy.overrides]]
+module = [
+    "sentence_transformers.*",
+    "pgvector.*",
+    "pymupdf.*",
+    "langgraph.*",
+    "fastmcp.*",
+    "tenacity.*",
+]
+ignore_missing_imports = true
+
+# numpy ships stubs using 3.12+ `type` statements; analysing them under
+# python_version = "3.11" is a syntax error in the stub, not in our code.
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
+follow_imports = "skip"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+# "." is backend/ (for `app`); ".." is the repo root, because the metric tests
+# import `evaluation`, which lives outside this package.
+pythonpath = [".", ".."]
+# Third-party deprecation noise on newer Python drowns real signal.
+filterwarnings = [
+    "ignore::DeprecationWarning:pytest_asyncio.*",
+    "ignore::DeprecationWarning:fastapi.*",
+]

@@ -1,0 +1,21 @@
+# Lint config for the top-level Python packages (ingestion/, evaluation/,
+# mcp_server/). The backend has its own config in backend/pyproject.toml;
+# both select the same rules so the codebase reads consistently.
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: `Depends(...)` in a parameter default is the documented FastAPI idiom.
+ignore = ["B008"]
+
+[lint.isort]
+# These packages import the backend as a library; without this, `app` is
+# mistaken for a third-party package and the import blocks get reordered.
+known-first-party = ["app", "ingestion", "evaluation", "mcp_server"]
+
+[lint.per-file-ignores]
+# The corpus generator holds sentence templates as data. Wrapping them would
+# split regulatory-style sentences mid-clause and make the corpus harder to
+# read and edit than the line-length rule is worth.
+"ingestion/generate_corpus.py" = ["E501"]

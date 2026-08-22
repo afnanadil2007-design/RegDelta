@@ -1,0 +1,15 @@
+# Local virtualenvs and their loose artifacts. A `python -m venv` run inside
+# backend/ scatters these here; none of them belong in git. The source tree
+# (app/, tests/, alembic/, pyproject.toml …) is NOT ignored.
+.venv/
+Include/
+Lib/
+Scripts/
+pyvenv.cfg
+
+# Build / tool caches
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+mypy_out.txt

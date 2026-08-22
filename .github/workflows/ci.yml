@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: regdelta
+          POSTGRES_PASSWORD: regdelta
+          POSTGRES_DB: regdelta
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U regdelta -d regdelta"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    env:
+      POSTGRES_HOST: localhost
+      # The gateway validates a key for the selected provider at startup.
+      # No test in this job makes a provider call.
+      ANTHROPIC_API_KEY: ci-not-a-real-key
+      LLM_PROVIDER: anthropic
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # Embedding and reranker weights are large; caching keeps CI deterministic
+      # and fast, and means the eval suites do not re-download on every run.
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-bge-small-reranker-base
+
+      - name: Install
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          cd backend && ruff check .
+          cd .. && ruff check ingestion evaluation mcp_server
+
+      - name: Typecheck (app/ai must be clean)
+        working-directory: backend
+        run: mypy app/ai
+
+      - name: Migrate
+        working-directory: backend
+        run: alembic upgrade head
+
+      - name: Unit and integration tests
+        working-directory: backend
+        env:
+          PYTHONPATH: ".:.."
+        run: pytest -q
+
+      - name: Seed a small corpus for the evaluation suites
+        env:
+          PYTHONPATH: backend
+        run: |
+          python -m ingestion.generate_corpus --count 60
+          python -m ingestion.run --no-vision
+          python -m ingestion.build_graph
+          python -m ingestion.extract_obligations --mode rules
+          python -m ingestion.embed
+          python -m evaluation.build_gold_set
+          python -m evaluation.build_extraction_labels --count 30
+
+      # Deterministic: no provider calls, fixed corpus seed, cached weights.
+      - name: Extraction and refusal suites
+        env:
+          PYTHONPATH: backend
+        run: |
+          python -m evaluation.run_suites --suite extraction
+          python -m evaluation.run_suites --suite refusal
+
+      - name: Retrieval evaluation gate
+        env:
+          PYTHONPATH: backend
+        run: python -m evaluation.check_baseline --sample 15
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Typecheck and build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Test
+        working-directory: frontend
+        run: npx vitest run

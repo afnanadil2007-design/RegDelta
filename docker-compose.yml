@@ -1,0 +1,53 @@
+# RegDelta local stack: postgres (pgvector) + api + web.
+# Single-user, local-only. No auth, no cloud config by design.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-regdelta}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-regdelta}
+      POSTGRES_DB: ${POSTGRES_DB:-regdelta}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-regdelta} -d ${POSTGRES_DB:-regdelta}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      # Inside the compose network postgres is reachable by service name.
+      POSTGRES_HOST: postgres
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Mount corpus + policy packs read-only for ingestion.
+      - ./data:/app/data
+      # Persist downloaded embedding/reranker models across restarts.
+      - modelcache:/root/.cache
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      # Vite proxies /api to the api service; see frontend/vite.config.ts.
+      VITE_API_BASE: /api
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  modelcache:
