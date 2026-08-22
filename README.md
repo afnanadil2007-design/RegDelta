@@ -153,6 +153,5 @@ New to the code? [docs/reading-guide.md](docs/reading-guide.md) walks the source
 - Authentication and multi-user support if it ever moved past a local tool.
 - Background processing for long assessments instead of a request-scoped background task.
 
-## License
 
-This repository does not currently include a license file, so no usage rights are granted by default. If you want others to reuse the code, add one (e.g. MIT) before publishing.
+
