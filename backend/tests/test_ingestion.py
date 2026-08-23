@@ -12,11 +12,11 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from app.db.models.enums import ExtractionMethod
 from sqlalchemy import text
 
 from app.ai.gateway import GatewayError, LLMGateway, LLMResponse
 from app.core.config import get_settings
-from app.db.models.enums import ExtractionMethod
 from app.repositories.circulars import ChunkRepository, CircularRepository, ParagraphRepository
 from app.services.ingestion import CircularMeta, ingest_batch, ingest_pdf
 from tests.fixtures import ALL_FIXTURES, write_fixture_pdf, write_scanned_pdf

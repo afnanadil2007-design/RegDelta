@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pymupdf
 import pytest
+from app.db.models.enums import ExtractionMethod
 
 from app.ai.extraction.chunking import chunk_paragraphs, estimate_tokens
 from app.ai.extraction.pdf import extract_pages, render_page_png
 from app.ai.extraction.segment import normalise, segment_pages, split_page_blocks
-from app.db.models.enums import ExtractionMethod
 from tests.fixtures import ALL_FIXTURES, write_fixture_pdf, write_scanned_pdf
 
 PAGE_ONE = """SEBI/HO/MIRSD/CIR/P/2024/17

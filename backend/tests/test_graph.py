@@ -6,6 +6,7 @@ import operator
 from typing import get_args, get_origin, get_type_hints
 
 import pytest
+from app.db.models.enums import ImpactType
 
 from app.ai.extraction.schemas import JudgedImpact
 from app.ai.gateway import LLMGateway
@@ -14,7 +15,6 @@ from app.ai.graph.nodes import GraphContext, _verify, fan_out
 from app.ai.graph.state import AssessmentState, ObligationTask, impact_of
 from app.ai.graph.tracing import Tracer
 from app.core.config import get_settings
-from app.db.models.enums import ImpactType
 
 
 def _ctx() -> GraphContext:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from app.db.models.enums import ImpactType
 from evaluation.metrics.retrieval import QueryResult, compute, compute_by_subset
 
 from app.ai.extraction.schemas import (
@@ -15,7 +16,6 @@ from app.ai.extraction.schemas import (
 )
 from app.ai.extraction.spans import resolve_span, span_within
 from app.ai.retrieval.fusion import reciprocal_rank_fusion
-from app.db.models.enums import ImpactType
 from app.services.policy_pack import parse_pack
 
 # --- RRF ---------------------------------------------------------------
@@ -247,10 +247,10 @@ async def test_as_of_reports_what_it_excluded(session) -> None:
     """
     from datetime import date
 
+    from app.db.models.enums import RetrievalMode
     from sqlalchemy import text as sql_text
 
     from app.ai.retrieval.pipeline import retrieve
-    from app.db.models.enums import RetrievalMode
     from app.repositories.search import SearchFilters
 
     # Find a supersession edge whose superseded circular has an embedded chunk,
@@ -292,8 +292,9 @@ async def test_as_of_reports_what_it_excluded(session) -> None:
 
 @pytest.mark.asyncio
 async def test_no_as_of_means_no_exclusions_reported(session) -> None:
-    from app.ai.retrieval.pipeline import retrieve
     from app.db.models.enums import RetrievalMode
+
+    from app.ai.retrieval.pipeline import retrieve
     from app.repositories.search import SearchFilters
 
     result = await retrieve(

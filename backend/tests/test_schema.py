@@ -11,12 +11,12 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
-
 from app.db.models import Base
 from app.db.models.corpus import Circular, Obligation, Paragraph
 from app.db.models.enums import ExtractionMethod, ImpactType
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+
 from app.repositories.circulars import CircularRepository, ParagraphRepository
 from app.repositories.obligations import ObligationRepository
 
@@ -227,6 +227,7 @@ async def test_span_check_constraint_rejects_inverted_spans(session) -> None:
 async def test_tsv_is_generated_from_text(session) -> None:
     """chunks.tsv is a generated column — populated without an explicit write."""
     from app.db.models.corpus import Chunk
+
     from app.repositories.circulars import ChunkRepository
 
     circular = await CircularRepository(session).add(
