@@ -13,7 +13,11 @@ from __future__ import annotations
 
 import operator
 from datetime import date
-from typing import Annotated, TypedDict
+from typing import Annotated
+
+# LangGraph derives a Pydantic schema from the state; on Python < 3.12
+# Pydantic only accepts typing_extensions.TypedDict.
+from typing_extensions import TypedDict
 
 from app.db.models.enums import ImpactType
 

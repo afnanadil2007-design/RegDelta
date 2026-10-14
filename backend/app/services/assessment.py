@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from datetime import date
+from typing import Any
 
 from app.ai.gateway import GatewayError, LLMGateway
 from app.ai.graph.build import GRAPH_VERSION, build_graph
@@ -133,7 +134,7 @@ async def run_assessment(run_id: uuid.UUID, settings: Settings | None = None) ->
     )
 
 
-async def _persist_findings(assessment_id: int, final: AssessmentState) -> None:
+async def _persist_findings(assessment_id: int, final: dict[str, Any]) -> None:
     drafts = [f for f in final.get("findings", []) if f.get("verified")]
     if not drafts:
         return

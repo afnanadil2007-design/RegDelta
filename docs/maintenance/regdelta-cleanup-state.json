@@ -1,0 +1,24 @@
+{
+  "updated": "2026-10-14T21:05:00+05:30",
+  "phase": "1 - source recovery and reproducible foundation",
+  "repo": "/home/afnan/Downloads/Reg-Delta/RegDelta",
+  "branch": "repair/regdelta-cleanup",
+  "base_sha": "f4a4b57edc5807b5c1ec57072b04db6b8f619ead",
+  "dirty_tree": "ledger + state files only",
+  "python_env": "backend/.venv (uv 0.12.5, CPython 3.11.16, torch 2.14.1+cpu)",
+  "node": "nvm 20.20.2 for frontend (matches CI); 22.23.2 for playwright-cli",
+  "services": {
+    "postgres": {
+      "container": "regdelta-repair-pg",
+      "volume": "regdelta_repair_pgdata",
+      "port": "127.0.0.1:55432",
+      "databases": ["regdelta_demo", "regdelta_test"],
+      "owner": "this repair session (label owner=regdelta-repair-session)"
+    },
+    "do_not_touch": ["regdelta-postgres-1", "regdelta_pgdata", "ai-trading-*", "jarvis-*"]
+  },
+  "env_for_commands": "PATH=backend/.venv/bin:$PATH POSTGRES_HOST=localhost POSTGRES_PORT=55432 POSTGRES_DB=regdelta_test",
+  "completed_gates": ["A04 baseline"],
+  "next_action": "Reconstruct backend/app/db/models/{__init__,enums,corpus,policy,assessment,evaluation}.py from migration 0002/0003; narrow .gitignore; run alembic upgrade + autogenerate parity check against regdelta_test.",
+  "outstanding_failures": ["mypy 17 errors", "alembic import failure", "pytest collection errors"]
+}

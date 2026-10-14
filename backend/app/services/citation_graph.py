@@ -16,6 +16,7 @@ and an LLM pass (``resolve_ambiguous``) can be run over just those.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -178,7 +179,9 @@ async def build_graph(session: AsyncSession) -> GraphReport:
     return report
 
 
-async def _stamp_effective_dates(session: AsyncSession, circular_id: int, issue_date) -> None:
+async def _stamp_effective_dates(
+    session: AsyncSession, circular_id: int, issue_date: date | None
+) -> None:
     """Give each new supersession edge the superseding circular's issue date."""
     if issue_date is None:
         return

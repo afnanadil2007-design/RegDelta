@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     database_url: str | None = None
+    # "null" opens a fresh connection per checkout instead of pooling. Needed
+    # when one process drives several event loops (the test suite does), since
+    # an async connection must not be reused across loops.
+    database_pool: Literal["queue", "null"] = "queue"
 
     # --- Embeddings / reranker ---
     embedding_model: str = "BAAI/bge-small-en-v1.5"

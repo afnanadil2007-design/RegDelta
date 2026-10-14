@@ -20,9 +20,15 @@ node_modules/
 frontend/dist/
 *.tsbuildinfo
 
-# Model caches (embeddings / reranker downloaded at runtime)
-.cache/
-models/
+# Model caches. sentence-transformers downloads to ~/.cache/huggingface by
+# default; these cover a cache pointed inside the checkout. Anchored to the
+# repo root: an unanchored `models/` once matched backend/app/db/models/ and
+# kept the ORM package out of git (see docs/maintenance/).
+/.cache/
+/models/
+
+# Local run artifacts (logs, screenshots, eval scratch output)
+/.artifacts/
 
 # Data artifacts (PDFs shipped via manifest + fetch script)
 data/circulars/*.pdf

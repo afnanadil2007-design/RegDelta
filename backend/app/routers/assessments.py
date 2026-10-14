@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
 from app.core.errors import ApiError
-from app.db.models.assessment import Assessment
+from app.db.models.assessment import AgentStep, Assessment
 from app.db.models.corpus import Circular
 from app.db.models.enums import AnalystDecision, AssessmentStatus
 from app.db.session import get_session, get_sessionmaker
@@ -159,7 +159,7 @@ async def _event_stream(run_id: uuid.UUID) -> AsyncIterator[dict]:
     yield {"event": "error", "data": json.dumps({"message": "Stream timed out."})}
 
 
-def _step_out(step) -> AgentStepOut:
+def _step_out(step: AgentStep) -> AgentStepOut:
     return AgentStepOut(
         seq=step.seq,
         node=step.node,

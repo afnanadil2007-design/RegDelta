@@ -187,7 +187,7 @@ def _openai_strict_schema(schema: dict[str, Any]) -> dict[str, Any]:
             return [walk(item) for item in node]
         return node
 
-    return walk(schema)  # type: ignore[return-value]
+    return walk(schema)
 
 
 class LLMGateway:

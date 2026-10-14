@@ -2,7 +2,7 @@
 
 Runs migrations against the async engine, pulling the URL from validated
 settings so there is one source of truth. ``target_metadata`` is ``Base.metadata``;
-model modules are imported here so autogenerate sees them (Stage 2+).
+importing ``app.db.models`` registers every table so autogenerate sees them.
 """
 
 from __future__ import annotations
@@ -11,13 +11,13 @@ import asyncio
 import sys
 from logging.config import fileConfig
 
-# Side-effect import: registers all 14 tables on Base.metadata for autogenerate.
-import app.db.models  # noqa: F401
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from alembic import context
+# Side-effect import: registers all 14 tables on Base.metadata for autogenerate.
+import app.db.models  # noqa: F401
 from app.core.config import get_settings
 from app.db.base import Base
 

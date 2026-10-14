@@ -1,8 +1,4 @@
-"""Declarative base for ORM models.
-
-Models are added in Stage 2. Alembic imports this module's ``Base.metadata``
-for autogeneration, so it must import every model package once they exist.
-"""
+"""Declarative base for the ORM models in ``app.db.models``."""
 
 from __future__ import annotations
 
