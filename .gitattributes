@@ -1,0 +1,12 @@
+# One line-ending convention for every text file, whatever the contributor's
+# platform. Binary formats are never touched.
+* text=auto eol=lf
+
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ico binary
