@@ -28,18 +28,18 @@ _SEPARATOR = "\n\n"
 # "(a)", "(iv)". Anchored to line start.
 _NUMBERED_START = re.compile(
     r"^\s*(?:"
-    r"\d+(?:\.\d+)*\.?"          # 1.  2.1  3.4.2
-    r"|\([a-z]{1,3}\)"            # (a) (iv)
-    r"|\([0-9]{1,2}\)"            # (1)
+    r"\d+(?:\.\d+)*\.?"  # 1.  2.1  3.4.2
+    r"|\([a-z]{1,3}\)"  # (a) (iv)
+    r"|\([0-9]{1,2}\)"  # (1)
     r")\s+\S"
 )
 
 # Headings: "ANNEXURE", "PART A", or a short all-caps line. Used for heading_path.
 _HEADING = re.compile(
     r"^\s*(?:"
-    r"ANNEX(?:URE)?[\s\-–]*[A-Z0-9]*"   # ANNEXURE, ANNEX-1
-    r"|PART\s+[A-Z0-9]+"                # PART A
-    r"|[A-Z][A-Z \-&,/]{6,}"            # an all-caps title line
+    r"ANNEX(?:URE)?[\s\-–]*[A-Z0-9]*"  # ANNEXURE, ANNEX-1
+    r"|PART\s+[A-Z0-9]+"  # PART A
+    r"|[A-Z][A-Z \-&,/]{6,}"  # an all-caps title line
     r")\s*$"
 )
 
@@ -109,9 +109,7 @@ def split_page_blocks(page_text: str) -> list[str]:
             flush()
             in_table = False
 
-        starts_new_block = (
-            not line.strip() or _NUMBERED_START.match(line) or _HEADING.match(line)
-        )
+        starts_new_block = not line.strip() or _NUMBERED_START.match(line) or _HEADING.match(line)
         if not in_table and starts_new_block:
             flush()
             if not line.strip():

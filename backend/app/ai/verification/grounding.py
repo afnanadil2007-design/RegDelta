@@ -62,9 +62,7 @@ def verify_judgement(
 
     clause_span = None
     if judged.impact_type is not ImpactType.NO_MATCH and judged.clause_span:
-        clause_span = resolve_span(
-            judged.clause_span, clause_text, base_offset=clause_char_start
-        )
+        clause_span = resolve_span(judged.clause_span, clause_text, base_offset=clause_char_start)
         if clause_span is None:
             return GroundingResult(
                 circular_span,

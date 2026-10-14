@@ -30,6 +30,4 @@ async def health(
 ) -> HealthResponse:
     # A database that is not reachable yet is a reportable state, not a 500.
     reachable = await CircularRepository(session).ping()
-    return HealthResponse(
-        status="ok", env=settings.env, database="up" if reachable else "down"
-    )
+    return HealthResponse(status="ok", env=settings.env, database="up" if reachable else "down")

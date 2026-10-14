@@ -53,9 +53,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()  # validates env fail-fast before serving traffic
     configure_logging(settings.log_level)
     log.info("regdelta.startup", extra={"env": settings.env, "provider": settings.llm_provider})
-    warm_task = (
-        asyncio.create_task(_warm_models()) if settings.warm_models_on_startup else None
-    )
+    warm_task = asyncio.create_task(_warm_models()) if settings.warm_models_on_startup else None
     yield
     if warm_task is not None:
         warm_task.cancel()

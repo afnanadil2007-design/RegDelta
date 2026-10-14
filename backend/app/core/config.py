@@ -148,6 +148,5 @@ def get_settings() -> Settings:
     except ValidationError as exc:  # pragma: no cover - exercised via tests
         # Re-raise with a concise pointer; pydantic already names the fields.
         raise RuntimeError(
-            "Invalid RegDelta configuration — fix the variables below in .env:\n"
-            f"{exc}"
+            f"Invalid RegDelta configuration — fix the variables below in .env:\n{exc}"
         ) from exc

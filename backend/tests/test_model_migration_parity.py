@@ -30,9 +30,7 @@ MODELS_DIR = BACKEND / "app" / "db" / "models"
 
 
 def _git(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args], cwd=BACKEND, capture_output=True, text=True, check=False
-    )
+    return subprocess.run(["git", *args], cwd=BACKEND, capture_output=True, text=True, check=False)
 
 
 def test_model_sources_are_not_git_ignored() -> None:

@@ -100,9 +100,7 @@ class SearchRepository:
         rows = (await self.session.execute(stmt)).all()
         return [(int(r[0]), float(r[1])) for r in rows]
 
-    async def excluded_by_temporal_filter(
-        self, chunk_ids: list[int], as_of: date
-    ) -> list[int]:
+    async def excluded_by_temporal_filter(self, chunk_ids: list[int], as_of: date) -> list[int]:
         """Which of these chunks the as_of filter would remove.
 
         Used to populate the UI banner: results that *would* have ranked but

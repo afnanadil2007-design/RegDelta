@@ -47,6 +47,4 @@ def estimate_cost_usd(model: str, tokens_in: int, tokens_out: int) -> float | No
     price = PRICING.get(model)
     if price is None:
         return None
-    return (tokens_in / _MTOK) * price.input_per_mtok + (
-        tokens_out / _MTOK
-    ) * price.output_per_mtok
+    return (tokens_in / _MTOK) * price.input_per_mtok + (tokens_out / _MTOK) * price.output_per_mtok

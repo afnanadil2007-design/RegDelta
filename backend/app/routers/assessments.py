@@ -203,12 +203,8 @@ async def _findings_out(session: AsyncSession, rows: list) -> list[FindingOut]:
     obligation_ids = [f.obligation_id for f in rows]
     clause_ids = [f.policy_clause_id for f in rows if f.policy_clause_id]
 
-    obligations = {
-        o.id: o for o in await ObligationRepository(session).get_many(obligation_ids)
-    }
-    clauses = {
-        c.id: c for c in await PolicyRepository(session).get_many_clauses(clause_ids)
-    }
+    obligations = {o.id: o for o in await ObligationRepository(session).get_many(obligation_ids)}
+    clauses = {c.id: c for c in await PolicyRepository(session).get_many_clauses(clause_ids)}
 
     return [
         FindingOut(
@@ -221,9 +217,7 @@ async def _findings_out(session: AsyncSession, rows: list) -> list[FindingOut]:
             clause_number=clauses[f.policy_clause_id].clause_number
             if f.policy_clause_id in clauses
             else None,
-            clause_text=clauses[f.policy_clause_id].text
-            if f.policy_clause_id in clauses
-            else None,
+            clause_text=clauses[f.policy_clause_id].text if f.policy_clause_id in clauses else None,
             impact_type=f.impact_type,
             rationale=f.rationale,
             confidence=f.confidence,

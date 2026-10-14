@@ -60,9 +60,7 @@ def test_strict_schema_strips_unsupported_validation_keywords() -> None:
 def _fake_openai_response(content: str, *, prompt_tokens=11, completion_tokens=7, refusal=None):
     message = types.SimpleNamespace(content=content, refusal=refusal)
     choice = types.SimpleNamespace(message=message, finish_reason="stop")
-    usage = types.SimpleNamespace(
-        prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
-    )
+    usage = types.SimpleNamespace(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
     return types.SimpleNamespace(choices=[choice], usage=usage)
 
 
@@ -208,8 +206,9 @@ class _FakeAnthropicClient:
 
 
 def test_anthropic_path_uses_output_config(monkeypatch) -> None:
-    gw = LLMGateway(_settings(LLM_PROVIDER="anthropic", ANTHROPIC_API_KEY="sk-x",
-                             LLM_MODEL="claude-opus-5"))
+    gw = LLMGateway(
+        _settings(LLM_PROVIDER="anthropic", ANTHROPIC_API_KEY="sk-x", LLM_MODEL="claude-opus-5")
+    )
     sink: dict = {}
     monkeypatch.setattr(
         gw, "_anthropic", lambda: _FakeAnthropicClient(_fake_anthropic_response("hi there"), sink)

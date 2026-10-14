@@ -107,10 +107,14 @@ async def test_concurrent_step_persistence_has_no_collisions(agent_run_id: int) 
 
     async with get_sessionmaker()() as session:
         rows = (
-            await session.execute(
-                select(AgentStep.seq).where(AgentStep.agent_run_id == agent_run_id)
+            (
+                await session.execute(
+                    select(AgentStep.seq).where(AgentStep.agent_run_id == agent_run_id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     assert len(rows) == _CONCURRENCY
     # Every persisted step belongs to this run and carries a unique sequence.

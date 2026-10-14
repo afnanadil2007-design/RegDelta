@@ -216,9 +216,7 @@ async def ingest_batch(
 
     for pdf_path, meta in items:
         try:
-            circular = await ingest_pdf(
-                session, pdf_path, meta, settings=settings, gateway=gateway
-            )
+            circular = await ingest_pdf(session, pdf_path, meta, settings=settings, gateway=gateway)
             if circular is None:
                 report.skipped.append(meta.circular_number)
                 continue
@@ -230,8 +228,11 @@ async def ingest_batch(
             await session.rollback()
             log.error(
                 "ingest.failed",
-                extra={"pdf": str(pdf_path), "circular_number": meta.circular_number,
-                       "error": str(exc)},
+                extra={
+                    "pdf": str(pdf_path),
+                    "circular_number": meta.circular_number,
+                    "error": str(exc),
+                },
             )
             report.failed.append((meta.circular_number, str(exc)))
 

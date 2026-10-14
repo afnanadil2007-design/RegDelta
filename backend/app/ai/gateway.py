@@ -220,9 +220,7 @@ class LLMGateway:
                     import anthropic
 
                     if not self.settings.anthropic_api_key:
-                        raise GatewayError(
-                            "ANTHROPIC_API_KEY is not set.", code="missing_api_key"
-                        )
+                        raise GatewayError("ANTHROPIC_API_KEY is not set.", code="missing_api_key")
                     self._client = anthropic.Anthropic(
                         api_key=self.settings.anthropic_api_key,
                         max_retries=0,  # this module owns retries; see module docstring
@@ -238,9 +236,7 @@ class LLMGateway:
                     from openai import OpenAI
 
                     if not self.settings.groq_api_key:
-                        raise GatewayError(
-                            "GROQ_API_KEY is not set.", code="missing_api_key"
-                        )
+                        raise GatewayError("GROQ_API_KEY is not set.", code="missing_api_key")
                     self._client = OpenAI(
                         api_key=self.settings.groq_api_key,
                         base_url=self.settings.groq_base_url,
@@ -401,9 +397,7 @@ class LLMGateway:
 
         refused = raw.stop_reason == "refusal"
         text = (
-            ""
-            if refused
-            else "".join(block.text for block in raw.content if block.type == "text")
+            "" if refused else "".join(block.text for block in raw.content if block.type == "text")
         )
         return _Normalized(
             text=text,
@@ -515,9 +509,7 @@ class LLMGateway:
             message = choice.message
             finish = choice.finish_reason
         except (AttributeError, IndexError) as exc:
-            raise GatewayError(
-                f"malformed provider response: {exc}", code="parse_error"
-            ) from exc
+            raise GatewayError(f"malformed provider response: {exc}", code="parse_error") from exc
 
         # OpenAI-compatible refusal signals: a populated `refusal` field, or a
         # content_filter finish reason. Either means: no usable answer.

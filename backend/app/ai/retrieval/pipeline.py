@@ -104,16 +104,12 @@ async def retrieve(
     # other request, including the assessment's live trace stream.
     embedding = await asyncio.to_thread(embed_query, query) if use_dense else None
 
-    dense_hits = (
-        await repo.dense(embedding, filters, settings.retrieve_top_n) if embedding else []
-    )
+    dense_hits = await repo.dense(embedding, filters, settings.retrieve_top_n) if embedding else []
     lexical_hits = (
         await repo.lexical(query, filters, settings.retrieve_top_n) if use_lexical else []
     )
 
-    excluded = await _temporal_exclusions(
-        repo, query, embedding, use_lexical, filters, settings
-    )
+    excluded = await _temporal_exclusions(repo, query, embedding, use_lexical, filters, settings)
 
     result = await _assemble(
         session, query, mode, dense_hits, lexical_hits, settings, top_k, excluded
@@ -261,9 +257,7 @@ async def _assemble(
 
     rerank_scores: dict[int, float] = {}
     if mode is RetrievalMode.HYBRID_RERANK:
-        passages = [
-            (cid, chunk_map[cid].text) for cid, _, _, _ in candidates if cid in chunk_map
-        ]
+        passages = [(cid, chunk_map[cid].text) for cid, _, _, _ in candidates if cid in chunk_map]
         # Offloaded: the cross-encoder scores every passage on CPU (tens of
         # seconds here), which must not run inline on the event loop.
         reranked = await asyncio.to_thread(rerank, query, passages)

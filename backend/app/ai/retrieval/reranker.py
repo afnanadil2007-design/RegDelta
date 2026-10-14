@@ -86,8 +86,7 @@ def rerank(query: str, passages: list[tuple[int, str]]) -> list[tuple[int, float
         scores = model.predict(pairs, batch_size=_BATCH_SIZE, show_progress_bar=False)
 
     scored = [
-        (chunk_id, float(score))
-        for (chunk_id, _), score in zip(passages, scores, strict=True)
+        (chunk_id, float(score)) for (chunk_id, _), score in zip(passages, scores, strict=True)
     ]
     scored.sort(key=lambda pair: (-pair[1], pair[0]))
     return scored

@@ -111,9 +111,7 @@ def write_fixture_pdf(fixture: FixtureCircular, directory: Path) -> Path:
     doc = pymupdf.open()
     for page_text in fixture.pages:
         page = doc.new_page()
-        page.insert_textbox(
-            pymupdf.Rect(56, 56, 556, 736), page_text, fontsize=11, fontname="helv"
-        )
+        page.insert_textbox(pymupdf.Rect(56, 56, 556, 736), page_text, fontsize=11, fontname="helv")
     doc.save(str(path))
     doc.close()
     return path

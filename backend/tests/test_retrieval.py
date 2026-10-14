@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from evaluation.metrics.retrieval import QueryResult, compute, compute_by_subset
 
 from app.ai.extraction.schemas import (
     ExtractedObligation,
@@ -17,6 +16,7 @@ from app.ai.extraction.spans import resolve_span, span_within
 from app.ai.retrieval.fusion import reciprocal_rank_fusion
 from app.db.models.enums import ImpactType
 from app.services.policy_pack import parse_pack
+from evaluation.metrics.retrieval import QueryResult, compute, compute_by_subset
 
 # --- RRF ---------------------------------------------------------------
 
@@ -159,8 +159,11 @@ def test_json_schema_is_self_contained() -> None:
 # --- policy pack parsing ------------------------------------------------
 
 
-POLICY_PATH = Path(__file__).resolve().parents[2] / "data" / "policy_packs" / (
-    "internal_compliance_manual_v1.md"
+POLICY_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "data"
+    / "policy_packs"
+    / ("internal_compliance_manual_v1.md")
 )
 
 
@@ -200,9 +203,9 @@ def _result(qid: str, subset: str, retrieved: list[int], relevant: set[int]) -> 
 
 def test_recall_and_mrr_on_a_known_ranking() -> None:
     results = [
-        _result("a", "semantic", [9, 8, 1], {1}),       # first relevant at rank 3
-        _result("b", "semantic", [2, 7, 7], {2}),       # rank 1
-        _result("c", "semantic", [5, 5, 5], {99}),      # miss
+        _result("a", "semantic", [9, 8, 1], {1}),  # first relevant at rank 3
+        _result("b", "semantic", [2, 7, 7], {2}),  # rank 1
+        _result("c", "semantic", [5, 5, 5], {99}),  # miss
     ]
     metrics = compute(results, "semantic")
     assert metrics.n_queries == 3
@@ -315,8 +318,8 @@ def test_rerank_scores_span_the_full_zero_to_one_range() -> None:
     from app.core.config import get_settings
 
     passage = "Stock brokers shall collect upfront margin from clients before accepting orders."
-    (_, irrelevant), = rerank("What is the capital of France?", [(1, passage)])
-    (_, relevant), = rerank("upfront margin collection from clients", [(1, passage)])
+    ((_, irrelevant),) = rerank("What is the capital of France?", [(1, passage)])
+    ((_, relevant),) = rerank("upfront margin collection from clients", [(1, passage)])
 
     threshold = get_settings().relevance_threshold
     assert irrelevant < threshold, "an unrelated query must fall below the threshold"

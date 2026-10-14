@@ -75,9 +75,7 @@ async def run_assessment(run_id: uuid.UUID, settings: Settings | None = None) ->
         agent_run.status = AssessmentStatus.RUNNING
         await session.commit()
 
-    ctx = GraphContext(
-        gateway=LLMGateway(settings), settings=settings, tracer=Tracer(agent_run_pk)
-    )
+    ctx = GraphContext(gateway=LLMGateway(settings), settings=settings, tracer=Tracer(agent_run_pk))
     graph = build_graph(ctx)
 
     initial: AssessmentState = {
@@ -116,9 +114,7 @@ async def run_assessment(run_id: uuid.UUID, settings: Settings | None = None) ->
         return
     except Exception as exc:  # noqa: BLE001 - a failed run is stored, not raised
         log.exception("assessment.failed", extra={"run_id": str(run_id)})
-        await _finish(
-            assessment_id, agent_run_pk, AssessmentStatus.FAILED, error=str(exc)
-        )
+        await _finish(assessment_id, agent_run_pk, AssessmentStatus.FAILED, error=str(exc))
         return
 
     await _persist_findings(assessment_id, final)

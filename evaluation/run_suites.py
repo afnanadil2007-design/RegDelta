@@ -125,9 +125,7 @@ async def run_groundedness() -> tuple[grounding_metrics.Layer1Metrics | None, st
     return grounding_metrics.compute_layer1(results), ""
 
 
-async def _check_finding(
-    session: AsyncSession, finding: Finding
-) -> grounding_metrics.Layer1Result:
+async def _check_finding(session: AsyncSession, finding: Finding) -> grounding_metrics.Layer1Result:
     """Re-resolve one finding's spans against the source text."""
     from app.db.models.corpus import Circular, Obligation
     from app.db.models.policy import PolicyClause
@@ -144,9 +142,7 @@ async def _check_finding(
 
     circular_ok = True
     if finding.circular_span_start is not None and circular is not None:
-        sliced = circular.full_text[
-            finding.circular_span_start : finding.circular_span_end or 0
-        ]
+        sliced = circular.full_text[finding.circular_span_start : finding.circular_span_end or 0]
         circular_ok = bool(sliced.strip())
         if not circular_ok:
             problems.append("circular span does not resolve")
@@ -298,8 +294,7 @@ async def _section_refusal(sha: str) -> list[str]:
         "|---|---:|---:|",
         f"| Correct-refusal rate | {metrics.correct_refusal_rate:.3f} | "
         f"{metrics.n_should_refuse} |",
-        f"| False-refusal rate | {metrics.false_refusal_rate:.3f} | "
-        f"{metrics.n_should_answer} |",
+        f"| False-refusal rate | {metrics.false_refusal_rate:.3f} | {metrics.n_should_answer} |",
         "",
     ]
 
@@ -310,10 +305,7 @@ async def _section_extraction(sha: str) -> list[str]:
     if metrics is None:
         return _skipped("Extraction", skip)
 
-    print(
-        f"  precision {metrics.precision:.3f}  recall {metrics.recall:.3f}  "
-        f"F1 {metrics.f1:.3f}"
-    )
+    print(f"  precision {metrics.precision:.3f}  recall {metrics.recall:.3f}  F1 {metrics.f1:.3f}")
     print(
         f"  {metrics.n_predicted} predicted vs {metrics.n_labelled} labelled "
         f"across {metrics.n_circulars} circulars"
@@ -344,18 +336,12 @@ async def _section_groundedness(sha: str) -> list[str]:
     if metrics is None:
         return _skipped("Groundedness (layer 1)", skip)
 
-    print(
-        f"  grounded {metrics.n_grounded}/{metrics.n_findings} "
-        f"({metrics.grounded_rate:.3f})"
-    )
-    await persist(
-        EvalSuite.GROUNDEDNESS, {"layer1_grounded_rate": metrics.grounded_rate}, sha
-    )
+    print(f"  grounded {metrics.n_grounded}/{metrics.n_findings} ({metrics.grounded_rate:.3f})")
+    await persist(EvalSuite.GROUNDEDNESS, {"layer1_grounded_rate": metrics.grounded_rate}, sha)
     return [
         "## Groundedness (layer 1)",
         "",
-        f"- Grounded: {metrics.n_grounded}/{metrics.n_findings} "
-        f"({metrics.grounded_rate:.3f})",
+        f"- Grounded: {metrics.n_grounded}/{metrics.n_findings} ({metrics.grounded_rate:.3f})",
         "",
     ]
 

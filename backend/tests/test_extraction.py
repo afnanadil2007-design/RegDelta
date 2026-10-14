@@ -212,9 +212,7 @@ def test_extract_pages_routes_each_page_independently(tmp_path: Path) -> None:
 def test_all_fixtures_round_trip_through_extraction(fixture, tmp_path: Path) -> None:
     pdf = write_fixture_pdf(fixture, tmp_path)
     pages = extract_pages(str(pdf), quality_threshold=0.15)
-    inputs = [
-        (p.page_number, p.text, ExtractionMethod.TEXT, p.text_quality_score) for p in pages
-    ]
+    inputs = [(p.page_number, p.text, ExtractionMethod.TEXT, p.text_quality_score) for p in pages]
     full_text, paragraphs = segment_pages(inputs)
     assert paragraphs
     for para in paragraphs:

@@ -134,9 +134,7 @@ def test_unknown_policy_pack_returns_envelope(client: TestClient) -> None:
 
 
 def test_assessment_for_unknown_circular_is_rejected(client: TestClient) -> None:
-    response = client.post(
-        "/api/assessments", json={"circular_id": 99999999, "policy_pack_id": 1}
-    )
+    response = client.post("/api/assessments", json={"circular_id": 99999999, "policy_pack_id": 1})
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "circular_not_found"
 

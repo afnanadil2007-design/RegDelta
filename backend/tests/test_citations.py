@@ -117,9 +117,7 @@ def test_strongest_cue_wins_when_several_appear() -> None:
 
 
 @pytest.mark.asyncio
-async def test_graph_resolves_citations_between_ingested_circulars(
-    session, tmp_path
-) -> None:
+async def test_graph_resolves_citations_between_ingested_circulars(session, tmp_path) -> None:
     """Two circulars where the second cites and supersedes the first."""
     from app.repositories.citations import CitationRepository, SupersessionRepository
     from app.services.ingestion import CircularMeta, ingest_pdf
@@ -128,23 +126,33 @@ async def test_graph_resolves_citations_between_ingested_circulars(
     old_number = "SEBI/HO/MIRSD/CIR/P/2020/900"
     new_number = "SEBI/HO/MIRSD/CIR/P/2024/901"
 
-    old = FixtureCircular(old_number, "Older margin circular", [
-        f"{old_number}\n\nJanuary 10, 2020\n\nUPFRONT MARGIN\n\n"
-        "1. Brokers shall collect upfront margin from clients.\n"
-    ])
-    new = FixtureCircular(new_number, "Newer margin circular", [
-        f"{new_number}\n\nMarch 04, 2024\n\nUPFRONT MARGIN\n\n"
-        "1. Brokers shall collect upfront margin before order entry.\n\n"
-        f"2. The provisions of {old_number} dated January 10, 2020 shall "
-        "stand superseded from the date of this circular.\n"
-    ])
+    old = FixtureCircular(
+        old_number,
+        "Older margin circular",
+        [
+            f"{old_number}\n\nJanuary 10, 2020\n\nUPFRONT MARGIN\n\n"
+            "1. Brokers shall collect upfront margin from clients.\n"
+        ],
+    )
+    new = FixtureCircular(
+        new_number,
+        "Newer margin circular",
+        [
+            f"{new_number}\n\nMarch 04, 2024\n\nUPFRONT MARGIN\n\n"
+            "1. Brokers shall collect upfront margin before order entry.\n\n"
+            f"2. The provisions of {old_number} dated January 10, 2020 shall "
+            "stand superseded from the date of this circular.\n"
+        ],
+    )
 
     old_c = await ingest_pdf(
-        session, write_fixture_pdf(old, tmp_path / "o"),
+        session,
+        write_fixture_pdf(old, tmp_path / "o"),
         CircularMeta(old_number, old.title, issue_date=date(2020, 1, 10)),
     )
     new_c = await ingest_pdf(
-        session, write_fixture_pdf(new, tmp_path / "n"),
+        session,
+        write_fixture_pdf(new, tmp_path / "n"),
         CircularMeta(new_number, new.title, issue_date=date(2024, 3, 4)),
     )
     assert old_c and new_c
@@ -173,11 +181,14 @@ async def test_a_circular_does_not_cite_itself(session, tmp_path) -> None:
     from tests.fixtures import FixtureCircular, write_fixture_pdf
 
     number = "SEBI/HO/CFD/CIR/P/2024/902"
-    fixture = FixtureCircular(number, "Self reference", [
-        f"{number}\n\nMay 01, 2024\n\nDISCLOSURE\n\n1. Issuers shall disclose promptly.\n"
-    ])
+    fixture = FixtureCircular(
+        number,
+        "Self reference",
+        [f"{number}\n\nMay 01, 2024\n\nDISCLOSURE\n\n1. Issuers shall disclose promptly.\n"],
+    )
     circular = await ingest_pdf(
-        session, write_fixture_pdf(fixture, tmp_path),
+        session,
+        write_fixture_pdf(fixture, tmp_path),
         CircularMeta(number, fixture.title, issue_date=date(2024, 5, 1)),
     )
     assert circular
@@ -196,12 +207,17 @@ async def test_unresolved_references_are_kept_not_discarded(session, tmp_path) -
 
     number = "SEBI/HO/ISD/CIR/P/2024/903"
     missing = "SEBI/HO/NOWHERE/CIR/P/1999/1"
-    fixture = FixtureCircular(number, "Dangling reference", [
-        f"{number}\n\nJune 02, 2024\n\nSURVEILLANCE\n\n"
-        f"1. Read with {missing} which is not in this corpus.\n"
-    ])
+    fixture = FixtureCircular(
+        number,
+        "Dangling reference",
+        [
+            f"{number}\n\nJune 02, 2024\n\nSURVEILLANCE\n\n"
+            f"1. Read with {missing} which is not in this corpus.\n"
+        ],
+    )
     circular = await ingest_pdf(
-        session, write_fixture_pdf(fixture, tmp_path),
+        session,
+        write_fixture_pdf(fixture, tmp_path),
         CircularMeta(number, fixture.title, issue_date=date(2024, 6, 2)),
     )
     assert circular

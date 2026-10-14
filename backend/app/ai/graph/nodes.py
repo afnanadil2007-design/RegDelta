@@ -176,9 +176,7 @@ async def _retrieve_clauses(
     # Offloaded to a thread: reranking the policy pack is a synchronous CPU call.
     # Running it inline would block the event loop that also serves the SSE trace
     # stream, so the assessment would appear frozen while it ran.
-    scored = await asyncio.to_thread(
-        rerank, task["text"], [(c.id, c.text) for c in clauses]
-    )
+    scored = await asyncio.to_thread(rerank, task["text"], [(c.id, c.text) for c in clauses])
     by_id = {c.id: c for c in clauses}
 
     out: list[dict[str, Any]] = []
@@ -356,12 +354,8 @@ def _verify(
             impact_type=judged.impact_type.value,
             rationale=judged.rationale,
             confidence=judged.confidence,
-            circular_span_start=(
-                result.circular_span.char_start if result.circular_span else None
-            ),
-            circular_span_end=(
-                result.circular_span.char_end if result.circular_span else None
-            ),
+            circular_span_start=(result.circular_span.char_start if result.circular_span else None),
+            circular_span_end=(result.circular_span.char_end if result.circular_span else None),
             clause_span_start=result.clause_span.char_start if result.clause_span else None,
             clause_span_end=result.clause_span.char_end if result.clause_span else None,
             verified=True,
@@ -432,9 +426,7 @@ async def retrieve_context_for_query(
     """
     try:
         async with get_sessionmaker()() as session:
-            result = await retrieve(
-                session, query, mode=mode, filters=SearchFilters(as_of=as_of)
-            )
+            result = await retrieve(session, query, mode=mode, filters=SearchFilters(as_of=as_of))
         if result.below_threshold:
             return {"error": "No result cleared the relevance threshold."}
         return {"hits": [{"chunk_id": h.chunk_id, "text": h.text} for h in result.hits]}

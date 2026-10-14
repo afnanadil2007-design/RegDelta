@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from evaluation.metrics.extraction import (
     ExtractionMetrics,
     LabelledObligation,
@@ -114,10 +115,10 @@ def _case(cid: str, should_refuse: bool) -> RefusalCase:
 
 def test_refusal_rates_are_reported_separately() -> None:
     outcomes = [
-        RefusalOutcome(_case("a", True), refused=True, top_score=0.1),    # correct
-        RefusalOutcome(_case("b", True), refused=False, top_score=0.9),   # missed
+        RefusalOutcome(_case("a", True), refused=True, top_score=0.1),  # correct
+        RefusalOutcome(_case("b", True), refused=False, top_score=0.9),  # missed
         RefusalOutcome(_case("c", False), refused=False, top_score=0.8),  # correct
-        RefusalOutcome(_case("d", False), refused=True, top_score=0.2),   # false refusal
+        RefusalOutcome(_case("d", False), refused=True, top_score=0.2),  # false refusal
     ]
     metrics = compute_refusal(outcomes)
     assert metrics.correct_refusal_rate == pytest.approx(0.5)
