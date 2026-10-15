@@ -114,9 +114,11 @@ labels: ## Rebuild the obligation label set
 real-corpus: ## Re-fetch the official SEBI documents named by the manifest and verify checksums
 	$(PY) -m ingestion.scrape_sebi --fetch-missing
 
+# Reuses the synthetic PDFs when `make seed` has written them, otherwise
+# generates them (deterministically, so a fresh clone gets the same corpus).
 e2e-db: ## Disposable regdelta_e2e database with the seeded synthetic demo data
 	POSTGRES_DB=regdelta_e2e $(PY) -m ingestion.prepare_db
-	POSTGRES_DB=regdelta_e2e $(PY) -m ingestion.seed --skip-corpus
+	POSTGRES_DB=regdelta_e2e $(PY) -m ingestion.seed $(if $(wildcard data/synthetic/pdf/*.pdf),--skip-corpus)
 
 e2e: ## Playwright end-to-end tests (starts the API and a production build itself)
 	cd frontend && REGDELTA_PYTHON=$(PY) npx playwright test
