@@ -29,7 +29,18 @@ from evaluation.metrics import extraction as extraction_metrics
 from evaluation.metrics import groundedness as grounding_metrics
 from evaluation.metrics import performance as perf_metrics
 from evaluation.metrics import refusal as refusal_metrics
-from evaluation.run_eval import REPORT_DIR, git_sha
+from evaluation.provenance import code_identity
+
+REPORT_DIR = Path(__file__).resolve().parent / "results" / "suites"
+
+
+def git_sha() -> str:
+    """Commit plus a dirty marker: a dirty tree is never reported as its clean base."""
+    identity = code_identity()
+    return identity["git_sha"] + (
+        f"+dirty:{identity['dirty_digest'][:12]}" if identity["dirty"] else ""
+    )
+
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession

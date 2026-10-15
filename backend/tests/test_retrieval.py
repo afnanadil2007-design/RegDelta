@@ -16,7 +16,8 @@ from app.ai.extraction.spans import resolve_span, span_within
 from app.ai.retrieval.fusion import reciprocal_rank_fusion
 from app.db.models.enums import ImpactType
 from app.services.policy_pack import parse_pack
-from evaluation.metrics.retrieval import QueryResult, compute, compute_by_subset
+from evaluation.metrics.retrieval import QueryOutcome, ranking_metrics, refusal_metrics
+from evaluation.stats import wilson
 
 # --- RRF ---------------------------------------------------------------
 
@@ -197,43 +198,89 @@ def test_policy_pack_is_marked_synthetic() -> None:
 # --- retrieval metrics --------------------------------------------------
 
 
-def _result(qid: str, subset: str, retrieved: list[int], relevant: set[int]) -> QueryResult:
-    return QueryResult(qid, subset, retrieved, relevant)
+def _outcome(
+    qid: str,
+    subset: str,
+    retrieved: list[str],
+    relevant: list[str],
+    cluster: str = "c",
+    refused: bool | None = None,
+) -> QueryOutcome:
+    return QueryOutcome(
+        query_id=qid,
+        subset=subset,
+        cluster=cluster,
+        mode="hybrid",
+        relevant=relevant,
+        retrieved=retrieved,
+        top_score=None,
+        refused=refused,
+        latency_ms=1.0,
+    )
+
+
+def _values(metrics: list) -> dict[str, float]:
+    return {m.name: m.value for m in metrics}
 
 
 def test_recall_and_mrr_on_a_known_ranking() -> None:
-    results = [
-        _result("a", "semantic", [9, 8, 1], {1}),  # first relevant at rank 3
-        _result("b", "semantic", [2, 7, 7], {2}),  # rank 1
-        _result("c", "semantic", [5, 5, 5], {99}),  # miss
+    outcomes = [
+        _outcome("a", "semantic", ["X", "Y", "R1"], ["R1"]),  # first relevant at rank 3
+        _outcome("b", "semantic", ["R2", "Z"], ["R2"]),  # rank 1
+        _outcome("c", "semantic", ["P", "Q"], ["R3"]),  # miss
     ]
-    metrics = compute(results, "semantic")
-    assert metrics.n_queries == 3
-    assert metrics.recall_at_5 == pytest.approx(2 / 3)
-    assert metrics.mrr == pytest.approx((1 / 3 + 1 / 1 + 0) / 3)
+    values = _values(ranking_metrics(outcomes, "semantic"))
+    assert values["recall@1"] == pytest.approx(1 / 3)
+    assert values["recall@5"] == pytest.approx(2 / 3)
+    assert values["mrr@10"] == pytest.approx((1 / 3 + 1 + 0) / 3)
 
 
 def test_recall_at_k_respects_the_cutoff() -> None:
-    result = _result("a", "semantic", [1, 2, 3, 4, 5, 6, 42], {42})
-    assert not result.hit_at(5)
-    assert result.hit_at(10)
+    outcome = _outcome("a", "semantic", ["1", "2", "3", "4", "5", "6", "R"], ["R"])
+    assert outcome.hit(5) == 0.0
+    assert outcome.hit(10) == 1.0
 
 
-def test_metrics_split_by_subset_and_include_all() -> None:
-    results = [
-        _result("s1", "semantic", [1], {1}),
-        _result("i1", "identifier", [9], {1}),
+def test_a_refused_query_is_a_miss_only_in_answered_recall() -> None:
+    in_scope = [
+        _outcome("a", "semantic", ["R"], ["R"], refused=True),
+        _outcome("b", "semantic", ["R"], ["R"], refused=False),
     ]
-    by_subset = compute_by_subset(results)
-    assert by_subset["semantic"].recall_at_5 == 1.0
-    assert by_subset["identifier"].recall_at_5 == 0.0
-    assert by_subset["all"].recall_at_5 == 0.5
+    out_scope = [_outcome("o1", "out_of_scope", ["X"], [], refused=True)]
+    values = {(m.name, m.subset): m.value for m in refusal_metrics(in_scope, out_scope)}
+    assert _values(ranking_metrics(in_scope, "all"))["recall@10"] == 1.0
+    assert values[("answered_recall@10", "in_scope")] == 0.5
+    assert values[("refusal_rate", "in_scope")] == 0.5
+    assert values[("refusal_rate", "out_of_scope")] == 1.0
 
 
-def test_metrics_on_empty_input_do_not_divide_by_zero() -> None:
-    metrics = compute([], "semantic")
-    assert metrics.n_queries == 0
-    assert metrics.mrr == 0.0
+def test_a_mode_without_a_threshold_reports_that_it_never_refuses() -> None:
+    metrics = refusal_metrics([_outcome("a", "semantic", ["R"], ["R"])], [])
+    assert all(m.value == 0.0 and m.note for m in metrics)
+
+
+def test_metrics_on_empty_input_are_empty_not_zero() -> None:
+    assert ranking_metrics([], "semantic") == []
+
+
+def test_intervals_resample_clusters_not_queries() -> None:
+    # Five clusters of perfectly correlated queries: the interval reflects five
+    # observations, so it must stay wide although there are twenty queries.
+    outcomes = [
+        _outcome(f"{c}-{i}", "semantic", ["R"] if c % 2 else ["X"], ["R"], cluster=str(c))
+        for c in range(5)
+        for i in range(4)
+    ]
+    recall = next(m for m in ranking_metrics(outcomes, "all") if m.name == "recall@10")
+    assert recall.ci is not None
+    low, high = recall.ci
+    assert high - low > 0.4
+
+
+def test_wilson_interval_bounds() -> None:
+    low, high = wilson(30, 30)
+    assert high == 1.0 and 0.85 < low < 0.9
+    assert wilson(0, 0) is None
 
 
 # --- temporal exclusion reporting ---------------------------------------

@@ -1,11 +1,23 @@
-"""Run the retrieval evaluation, optionally as a four-mode ablation.
+"""Retrieval evaluation: the four modes over one fixed query manifest.
 
-The ablation calls the *same* ``retrieve()`` the API and the agent call, with
-only ``mode`` varied. Measuring a parallel implementation would tell you about
-the harness, not the product.
+Every mode runs through the same ``retrieve()`` the API uses, over the same
+query ids (``datasets/synthetic/retrieval_sample.json``), with the threshold
+not applied so ranking and refusal are measured from one run. The circular a
+query was taken from is removed from its ranking: its own text trivially
+contains the query, and it is never the cited (relevant) circular.
 
-    python -m evaluation.run_eval --ablation
-    python -m evaluation.run_eval --mode hybrid_rerank --limit 100
+Outputs, under ``results/retrieval/<label>/``:
+
+* ``per_query.jsonl``: one row per (mode, query), the raw material;
+* ``summary.json``: metrics with intervals, paired comparisons, error
+  examples, and the provenance block (code, models, data, machine).
+
+``python -m evaluation.report`` turns a summary into the tables in
+docs/evaluation.md; ``--persist`` also stores the metrics for the UI.
+
+    python -m evaluation.build_gold_set --sample 60
+    python -m evaluation.run_eval --label 2026-10-15-ablation --persist
+    python -m evaluation.run_eval --full-fast --label full-fast   # all queries, fast modes
 """
 
 from __future__ import annotations
@@ -13,243 +25,403 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import subprocess
 import sys
 import time
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.ai.retrieval import embeddings, reranker
 from app.ai.retrieval.pipeline import retrieve
 from app.core.config import get_settings
-from app.core.logging import bind_run_id, configure_logging
+from app.core.logging import configure_logging
+from app.db.models.corpus import Circular
 from app.db.models.enums import EvalSuite, RetrievalMode
 from app.db.models.evaluation import EvalResult, EvalRun
 from app.db.session import get_sessionmaker
 from app.repositories.evaluation import EvaluationRepository
 from app.repositories.search import SearchFilters
-from evaluation.build_gold_set import GOLD_PATH, read_gold
-from evaluation.metrics.retrieval import MetricSet, QueryResult, compute_by_subset
+from evaluation.build_gold_set import GOLD_PATH, SAMPLE_PATH, GoldQuery, read_gold, read_sample
+from evaluation.metrics.retrieval import (
+    CUTOFF,
+    Metric,
+    QueryOutcome,
+    latency_metrics,
+    ranking_metrics,
+    refusal_metrics,
+)
+from evaluation.provenance import code_identity, file_sha256, machine, model_revision
+from evaluation.stats import paired_difference
 
-REPORT_DIR = Path(__file__).resolve().parent / "reports"
-BASELINE_PATH = Path(__file__).resolve().parent / "baseline.json"
+ROOT = Path(__file__).resolve().parent
+RESULTS_DIR = ROOT / "results" / "retrieval"
+OUT_OF_SCOPE_PATH = ROOT / "datasets" / "out_of_scope.jsonl"
+
+MODES = [
+    RetrievalMode.DENSE,
+    RetrievalMode.LEXICAL,
+    RetrievalMode.HYBRID,
+    RetrievalMode.HYBRID_RERANK,
+]
+FAST_MODES = MODES[:3]
+# Enough candidates that removing the citing circular still leaves CUTOFF.
+_FETCH = CUTOFF + 5
+
+COMPARISONS = [
+    (RetrievalMode.HYBRID_RERANK, RetrievalMode.LEXICAL),
+    (RetrievalMode.HYBRID_RERANK, RetrievalMode.HYBRID),
+    (RetrievalMode.HYBRID, RetrievalMode.LEXICAL),
+    (RetrievalMode.HYBRID, RetrievalMode.DENSE),
+]
 
 
-def git_sha() -> str:
-    """The commit this measurement belongs to.
-
-    Metric trends are only reconstructable if every number is tied to code.
-    Falls back to a marker rather than crashing outside a git checkout.
-    """
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=5
+def _out_of_scope() -> list[GoldQuery]:
+    rows = [
+        json.loads(line)
+        for line in OUT_OF_SCOPE_PATH.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    return [
+        GoldQuery(
+            query_id=row["id"],
+            subset="out_of_scope",
+            query=row["query"],
+            relevant=[],
+            citing_circular="",
+            citing_paragraph=-1,
+            reference="",
         )
-        return out.stdout.strip() or "unknown"
-    except Exception:
-        return "unknown"
+        for row in rows
+    ]
 
 
-def stratified_sample(pairs: list, per_subset: int, seed: int = 7) -> list:
-    """Take ``per_subset`` queries from each subset, deterministically.
+async def _numbers(session: AsyncSession) -> dict[int, str]:
+    rows = await session.execute(select(Circular.id, Circular.circular_number))
+    return {cid: number for cid, number in rows.all()}
 
-    The cross-encoder costs ~0.4s per candidate pair on CPU, so scoring all
-    1,300+ gold queries in every mode takes hours. A fixed-seed stratified
-    sample keeps both subsets equally represented and keeps the ablation
-    reproducible; the sample size is reported alongside every number.
-    """
-    import random
 
-    rng = random.Random(seed)
-    out: list = []
-    for subset in sorted({p.subset for p in pairs}):
-        bucket = [p for p in pairs if p.subset == subset]
-        rng.shuffle(bucket)
-        out.extend(bucket[:per_subset])
+async def run_query(
+    session: AsyncSession,
+    query: GoldQuery,
+    mode: RetrievalMode,
+    numbers: dict[int, str],
+    threshold: float,
+) -> QueryOutcome:
+    started = time.perf_counter()
+    result = await retrieve(
+        session,
+        query.query,
+        mode=mode,
+        filters=SearchFilters(),
+        top_k=_FETCH,
+        apply_threshold=False,
+    )
+    latency_ms = (time.perf_counter() - started) * 1000
+
+    retrieved: list[str] = []
+    top: float | None = None
+    for hit in result.hits:
+        number = numbers.get(hit.circular_id, f"#{hit.circular_id}")
+        if number == query.citing_circular or number in retrieved:
+            continue
+        if top is None:
+            top = hit.score
+        retrieved.append(number)
+        if len(retrieved) == CUTOFF:
+            break
+    # The refusal rule of the reranked mode, applied to the ranking as evaluated.
+    refused = (top is None or top < threshold) if mode is RetrievalMode.HYBRID_RERANK else None
+    return QueryOutcome(
+        query_id=query.query_id,
+        subset=query.subset,
+        cluster=query.citing_circular or query.query_id,
+        mode=mode.value,
+        relevant=query.relevant,
+        retrieved=retrieved,
+        top_score=top,
+        refused=refused,
+        latency_ms=round(latency_ms, 2),
+        excluded=query.citing_circular or None,
+    )
+
+
+def _metric_dict(metric: Metric) -> dict[str, Any]:
+    out = asdict(metric)
+    out["ci"] = list(metric.ci) if metric.ci else None
     return out
 
 
-async def evaluate_mode(
-    mode: RetrievalMode, limit: int | None, sample: int | None = None
-) -> tuple[dict[str, MetricSet], float]:
-    """Run every gold query through one retrieval mode."""
-    pairs = read_gold()
-    if not pairs:
-        raise SystemExit(f"No gold set at {GOLD_PATH}. Run: python -m evaluation.build_gold_set")
-    if sample:
-        pairs = stratified_sample(pairs, sample)
-    if limit:
-        pairs = pairs[:limit]
+def summarise(outcomes: list[QueryOutcome], modes: list[RetrievalMode]) -> dict[str, Any]:
+    by_mode: dict[str, Any] = {}
+    for mode in modes:
+        rows = [o for o in outcomes if o.mode == mode.value]
+        in_scope = [o for o in rows if o.subset != "out_of_scope"]
+        out_scope = [o for o in rows if o.subset == "out_of_scope"]
+        metrics: list[Metric] = []
+        metrics += ranking_metrics(in_scope, "all")
+        for subset in ("semantic", "identifier"):
+            metrics += ranking_metrics([o for o in in_scope if o.subset == subset], subset)
+        metrics += refusal_metrics(in_scope, out_scope)
+        metrics += latency_metrics(rows)
+        misses = [o for o in in_scope if o.rank is None]
+        by_mode[mode.value] = {
+            "n_in_scope": len(in_scope),
+            "n_out_of_scope": len(out_scope),
+            "metrics": [_metric_dict(m) for m in metrics],
+            "error_examples": [
+                {
+                    "query_id": o.query_id,
+                    "subset": o.subset,
+                    "relevant": o.relevant,
+                    "top3": o.retrieved[:3],
+                }
+                for o in sorted(misses, key=lambda o: o.query_id)[:6]
+            ],
+        }
 
-    results: list[QueryResult] = []
-    started = time.perf_counter()
-
-    async with get_sessionmaker()() as session:
-        for i, pair in enumerate(pairs, start=1):
-            outcome = await retrieve(
-                session, pair.query, mode=mode, filters=SearchFilters(), top_k=10
+    comparisons = []
+    present = {m.value for m in modes}
+    for a, b in COMPARISONS:
+        if a.value not in present or b.value not in present:
+            continue
+        index = {(o.mode, o.query_id): o for o in outcomes if o.subset != "out_of_scope"}
+        ids = sorted({o.query_id for o in outcomes if o.subset != "out_of_scope"})
+        for name, fn in (
+            ("recall@10", lambda o: o.hit(CUTOFF)),
+            ("mrr@10", lambda o: o.reciprocal_rank()),
+        ):
+            pairs = [
+                (fn(index[(a.value, q)]), fn(index[(b.value, q)]), index[(a.value, q)].cluster)
+                for q in ids
+            ]
+            estimate, interval = paired_difference(pairs)
+            comparisons.append(
+                {
+                    "a": a.value,
+                    "b": b.value,
+                    "metric": name,
+                    "difference": estimate,
+                    "ci": list(interval) if interval else None,
+                    "n": len(pairs),
+                }
             )
-            results.append(
-                QueryResult(
-                    query_id=pair.query_id,
-                    subset=pair.subset,
-                    retrieved_chunk_ids=[h.chunk_id for h in outcome.hits],
-                    relevant_chunk_ids=set(pair.relevant_chunk_ids),
-                )
-            )
-            if i % 50 == 0:
-                print(f"    {mode.value}: {i}/{len(pairs)}", flush=True)
-
-    elapsed = time.perf_counter() - started
-    return compute_by_subset(results), elapsed
+    return {"modes": by_mode, "paired_differences": comparisons}
 
 
-async def persist(
-    mode: RetrievalMode, metrics: dict[str, MetricSet], elapsed: float, sha: str
-) -> None:
-    """Store the run and its metrics, stamped with the git SHA."""
+async def evaluate(
+    queries: list[GoldQuery], modes: list[RetrievalMode]
+) -> tuple[list[QueryOutcome], dict[str, float]]:
     settings = get_settings()
+    loads: dict[str, float] = {}
+    # Load the models before timing anything, so latency is warm per-query cost.
+    started = time.perf_counter()
+    embeddings.embed_query("warm up")
+    loads["embedding_model_load_s"] = round(time.perf_counter() - started, 2)
+    if RetrievalMode.HYBRID_RERANK in modes:
+        started = time.perf_counter()
+        reranker.rerank("warm up", [(0, "warm up")])
+        loads["reranker_load_s"] = round(time.perf_counter() - started, 2)
+
+    outcomes: list[QueryOutcome] = []
+    async with get_sessionmaker()() as session:
+        numbers = await _numbers(session)
+        for mode in modes:
+            started = time.perf_counter()
+            for index, query in enumerate(queries, start=1):
+                outcomes.append(
+                    await run_query(session, query, mode, numbers, settings.relevance_threshold)
+                )
+                if index % 25 == 0 or index == len(queries):
+                    print(f"  {mode.value:14} {index}/{len(queries)}", flush=True)
+            loads[f"{mode.value}_wall_s"] = round(time.perf_counter() - started, 1)
+    return outcomes, loads
+
+
+def provenance(
+    queries: list[GoldQuery], sample: dict | None, timings: dict[str, float]
+) -> dict[str, Any]:
+    settings = get_settings()
+    return {
+        "code": code_identity(),
+        "models": {
+            "embedding": {
+                "id": settings.embedding_model,
+                "revision": model_revision(settings.embedding_model),
+            },
+            "reranker": {
+                "id": settings.reranker_model,
+                "revision": model_revision(settings.reranker_model),
+                "activation": "sigmoid over the single logit (scores in 0..1, uncalibrated)",
+            },
+        },
+        "retrieval_config": {
+            "rrf_k": settings.rrf_k,
+            "retrieve_top_n": settings.retrieve_top_n,
+            "relevance_threshold": settings.relevance_threshold,
+            "threshold_origin": (
+                "configuration default set before this evaluation; not tuned on this sample"
+            ),
+            "cutoff": CUTOFF,
+        },
+        "data": {
+            "corpus": "synthetic (ingestion/generate_corpus.py)",
+            "database": settings.postgres_db,
+            "gold_file": f"evaluation/datasets/synthetic/{GOLD_PATH.name}",
+            "gold_sha256": file_sha256(GOLD_PATH),
+            "sample_manifest": f"evaluation/datasets/synthetic/{SAMPLE_PATH.name}"
+            if sample
+            else None,
+            "sample_seed": sample["seed"] if sample else None,
+            "out_of_scope_file": "evaluation/datasets/out_of_scope.jsonl",
+            "out_of_scope_sha256": file_sha256(OUT_OF_SCOPE_PATH),
+            "queries": {
+                s: sum(q.subset == s for q in queries)
+                for s in ("semantic", "identifier", "out_of_scope")
+            },
+            "relevance": (
+                "template-derived citation labels: one relevant circular per query (the cited one)"
+            ),
+            "exclusions": "the circular a query was taken from is removed from its ranking",
+        },
+        "machine": machine(),
+        "timing": {
+            "method": (
+                "time.perf_counter around one retrieve() call; models loaded first; "
+                "one query at a time"
+            ),
+            **timings,
+        },
+        "generated": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+
+
+async def persist(summary: dict[str, Any], label: str) -> None:
+    """Store each mode's metrics as an evaluation run, for the evaluation page."""
+    prov = summary["provenance"]
+    code = prov["code"]
+    sha = code["git_sha"] + ("+dirty" if code["dirty"] else "")
+    config = {
+        "label": label,
+        "dirty_digest": code["dirty_digest"],
+        "models": prov["models"],
+        "retrieval_config": prov["retrieval_config"],
+        "machine": prov["machine"],
+        "data": prov["data"],
+    }
     async with get_sessionmaker()() as session:
         repo = EvaluationRepository(session)
-        run = await repo.add_run(
-            EvalRun(
-                suite=EvalSuite.RETRIEVAL,
-                git_sha=sha,
-                mode=mode,
-                dataset=GOLD_PATH.name,
-                config={
-                    "embedding_model": settings.embedding_model,
-                    "reranker_model": settings.reranker_model,
-                    "rrf_k": settings.rrf_k,
-                    "retrieve_top_n": settings.retrieve_top_n,
-                    "rerank_top_k": settings.rerank_top_k,
-                    "relevance_threshold": settings.relevance_threshold,
-                    "elapsed_seconds": round(elapsed, 2),
-                },
-            )
-        )
-        rows = []
-        for subset, metric in metrics.items():
-            for name, value in (
-                ("recall@5", metric.recall_at_5),
-                ("recall@10", metric.recall_at_10),
-                ("mrr", metric.mrr),
-            ):
-                k = 5 if name.endswith("5") else 10 if name.endswith("10") else None
-                rows.append(
-                    EvalResult(
-                        eval_run_id=run.id,
-                        metric_name=name,
-                        metric_value=value,
-                        subset=subset,
-                        k=k,
-                        detail={"n_queries": metric.n_queries},
-                    )
+        for mode_name, block in summary["modes"].items():
+            run = await repo.add_run(
+                EvalRun(
+                    suite=EvalSuite.RETRIEVAL,
+                    git_sha=sha[:64],
+                    mode=RetrievalMode(mode_name),
+                    dataset=prov["data"]["sample_manifest"] or prov["data"]["gold_file"],
+                    config=config,
+                    notes=(
+                        f"{block['n_in_scope']} in-scope and {block['n_out_of_scope']} "
+                        "out-of-scope queries on the "
+                        "synthetic corpus; template-derived relevance labels, not human judgements."
+                    ),
                 )
-        await repo.add_results(rows)
-        await repo.finish_run(run.id)
+            )
+            rows = [
+                EvalResult(
+                    eval_run_id=run.id,
+                    metric_name=m["name"],
+                    metric_value=float(m["value"]),
+                    subset=m["subset"],
+                    k=m["k"],
+                    detail={
+                        "n": m["n"],
+                        "n_queries": m["n"],
+                        "ci_low": m["ci"][0] if m["ci"] else None,
+                        "ci_high": m["ci"][1] if m["ci"] else None,
+                        "note": m["note"],
+                    },
+                )
+                for m in block["metrics"]
+            ]
+            await repo.add_results(rows)
+            await repo.finish_run(run.id)
         await session.commit()
 
 
-def render_markdown(all_metrics: dict[str, dict[str, MetricSet]], sha: str, n_queries: int) -> str:
-    """The ablation table that goes in the README."""
-    lines = [
-        "# Retrieval ablation",
-        "",
-        f"- Commit: `{sha}`",
-        f"- Generated: {datetime.now(UTC).isoformat(timespec='seconds')}",
-        f"- Queries per mode: {n_queries} (stratified sample of the gold set)",
-        "- Corpus: **synthetic** (see `ingestion/generate_corpus.py`) — these are",
-        "  real measurements of the real pipeline, on a corpus that is not real SEBI text.",
-        "",
-        "Relevance comes from the corpus's own citation graph: a chunk is relevant",
-        "if it belongs to the circular the querying paragraph cited.",
-        "",
-        "| Mode | Subset | N | Recall@5 | Recall@10 | MRR |",
-        "|---|---|---:|---:|---:|---:|",
-    ]
-    for mode_name, metrics in all_metrics.items():
-        for subset in ("semantic", "identifier", "all"):
-            metric = metrics.get(subset)
-            if metric is None:
-                continue
-            lines.append(
-                f"| `{mode_name}` | {subset} | {metric.n_queries} | "
-                f"{metric.recall_at_5:.3f} | {metric.recall_at_10:.3f} | {metric.mrr:.3f} |"
+async def run(label: str, full_fast: bool, persist_results: bool, limit: int | None) -> int:
+    configure_logging("WARNING")
+    gold = read_gold()
+    if not gold:
+        print(f"No gold set at {GOLD_PATH}. Run: python -m evaluation.build_gold_set --sample 60")
+        return 1
+    if full_fast:
+        queries, sample, modes = gold, None, FAST_MODES
+    else:
+        if not SAMPLE_PATH.is_file():
+            print(
+                f"No sample manifest at {SAMPLE_PATH}. "
+                "Run: python -m evaluation.build_gold_set --sample 60"
             )
-    lines.append("")
-    return "\n".join(lines)
+            return 1
+        sample = read_sample()
+        if sample["gold_sha256"] != file_sha256(GOLD_PATH):
+            print(
+                "The sample manifest was drawn from a different gold file; rebuild both together."
+            )
+            return 1
+        wanted = set(sample["query_ids"])
+        queries, modes = [q for q in gold if q.query_id in wanted], MODES
+    out_of_scope = _out_of_scope()
+    if limit:
+        queries, out_of_scope = queries[:limit], out_of_scope[:limit]
+    queries = queries + out_of_scope
 
+    print(f"{len(queries)} queries x {len(modes)} modes", flush=True)
+    outcomes, timings = await evaluate(queries, modes)
+    summary = summarise(outcomes, modes)
+    summary["provenance"] = provenance(queries, sample, timings)
 
-async def run(
-    modes: list[RetrievalMode], limit: int | None, write_baseline: bool, sample: int | None
-) -> int:
-    settings = get_settings()
-    configure_logging("WARNING")  # keep the table readable
-    bind_run_id("eval-retrieval")
-    sha = git_sha()
+    out_dir = RESULTS_DIR / label
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with (out_dir / "per_query.jsonl").open("w", encoding="utf-8") as handle:
+        for outcome in outcomes:
+            handle.write(json.dumps(asdict(outcome), ensure_ascii=False) + "\n")
+    (out_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    print(f"Wrote {out_dir}")
 
-    all_metrics: dict[str, dict[str, MetricSet]] = {}
-    for mode in modes:
-        print(f"  running {mode.value} ...", flush=True)
-        metrics, elapsed = await evaluate_mode(mode, limit, sample)
-        all_metrics[mode.value] = metrics
-        await persist(mode, metrics, elapsed, sha)
-        row = metrics["all"].as_row()
+    for mode_name, block in summary["modes"].items():
+        values = {(m["name"], m["subset"]): m["value"] for m in block["metrics"]}
         print(
-            f"  {mode.value:15} R@5={row['recall@5']:.3f} "
-            f"R@10={row['recall@10']:.3f} MRR={row['mrr']:.3f}  ({elapsed:.1f}s)"
+            f"  {mode_name:14} R@10={values[('recall@10', 'all')]:.3f} "
+            f"MRR={values[('mrr@10', 'all')]:.3f} "
+            f"p50={values[('latency_p50_ms', 'all')]:.0f} ms "
+            f"p95={values[('latency_p95_ms', 'all')]:.0f} ms"
         )
-
-    REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    report = REPORT_DIR / "retrieval_ablation.md"
-    n_queries = next(iter(all_metrics.values()))["all"].n_queries
-    report.write_text(render_markdown(all_metrics, sha, n_queries), encoding="utf-8")
-    print(f"\nWrote {report}")
-
-    if write_baseline:
-        best = all_metrics.get(RetrievalMode.HYBRID_RERANK.value) or next(
-            iter(all_metrics.values())
-        )
-        BASELINE_PATH.write_text(
-            json.dumps(
-                {
-                    "git_sha": sha,
-                    "mode": RetrievalMode.HYBRID_RERANK.value,
-                    "recall@10": round(best["all"].recall_at_10, 4),
-                    "recall@5": round(best["all"].recall_at_5, 4),
-                    "mrr": round(best["all"].mrr, 4),
-                    "n_queries": best["all"].n_queries,
-                },
-                indent=2,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        print(f"Wrote {BASELINE_PATH}")
-
-    _ = settings
+    if persist_results:
+        await persist(summary, label)
+        print("Stored in the database for the evaluation page.")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Retrieval evaluation.")
-    parser.add_argument("--ablation", action="store_true", help="run all four modes")
-    parser.add_argument("--mode", default="hybrid_rerank", choices=[m.value for m in RetrievalMode])
-    parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--write-baseline", action="store_true", help="update baseline.json")
-    parser.add_argument(
-        "--sample",
-        type=int,
-        default=None,
-        help="queries per subset (stratified, fixed seed). Omit to use the full gold set.",
+    parser = argparse.ArgumentParser(
+        description="Retrieval evaluation over a fixed query manifest."
     )
+    parser.add_argument("--label", default=datetime.now(UTC).strftime("%Y-%m-%d-%H%M"))
+    parser.add_argument(
+        "--full-fast", action="store_true", help="every gold query, fast modes only (no reranking)"
+    )
+    parser.add_argument(
+        "--persist", action="store_true", help="store metrics in the database for the UI"
+    )
+    parser.add_argument("--limit", type=int, default=None, help="first N queries only (smoke runs)")
     args = parser.parse_args(argv)
-
-    modes = list(RetrievalMode) if args.ablation else [RetrievalMode(args.mode)]
-
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    return asyncio.run(run(modes, args.limit, args.write_baseline, args.sample))
+    return asyncio.run(run(args.label, args.full_fast, args.persist, args.limit))
 
 
 if __name__ == "__main__":

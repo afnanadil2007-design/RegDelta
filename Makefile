@@ -51,24 +51,28 @@ dev-api: ## Run the API with autoreload
 dev-web: ## Run the Vite dev server
 	cd frontend && npm run dev
 
-eval: ## Retrieval ablation (all four modes) + the other suites
-	python -m evaluation.run_eval --ablation --sample 25
+eval: ## Four-mode retrieval evaluation on the fixed sample (slow: reranking is ~40 s/query on CPU), then the suites
+	python -m evaluation.run_eval --persist
+	python -m evaluation.report
 	python -m evaluation.run_suites
 
-eval-retrieval: ## Retrieval ablation only
-	python -m evaluation.run_eval --ablation --sample 25
+eval-retrieval: ## Four-mode retrieval evaluation on the fixed sample
+	python -m evaluation.run_eval --persist
+
+eval-fast: ## Dense, lexical and hybrid over every gold query (minutes, no reranking)
+	python -m evaluation.run_eval --full-fast --label full-fast
 
 eval-suites: ## Extraction, refusal, groundedness, latency/cost
 	python -m evaluation.run_suites
 
-eval-gate: ## CI gate: fail if recall@10 regressed against baseline.json
-	python -m evaluation.check_baseline --sample 15
+eval-gate: ## CI gate: hybrid Recall@10/MRR on the CI corpus against evaluation/baseline.json
+	python -m evaluation.check_baseline
 
 labels: ## Rebuild the obligation label set
 	python -m evaluation.build_extraction_labels --count 30
 
-gold: ## Rebuild the retrieval gold set from the citation graph
-	python -m evaluation.build_gold_set
+gold: ## Rebuild the retrieval gold set and its 60-citation sample manifest
+	python -m evaluation.build_gold_set --sample 60
 
 mcp: ## Demonstrate the MCP server over STDIO
 	python -m mcp_server.test_mcp_client

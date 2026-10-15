@@ -21,7 +21,9 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-DATASET = Path(__file__).resolve().parents[1] / "datasets" / "obligations_labeled.jsonl"
+DATASET = (
+    Path(__file__).resolve().parents[1] / "datasets" / "synthetic" / "obligations_labeled.jsonl"
+)
 
 # Actors are compared after normalisation: "Stock brokers" and "stock broker"
 # are the same party, and a labelling that differs only in plurality or article
