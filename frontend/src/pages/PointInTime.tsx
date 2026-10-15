@@ -1,5 +1,5 @@
 import { CalendarClock, CircleCheck, CircleSlash, Hourglass } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { GuideHead, Ident, PageHeader, ShoulderArrow, SyntheticTag } from "@/components/lexicon";
@@ -22,30 +22,45 @@ import { queryTerms } from "@/lib/text";
 import { cn } from "@/lib/utils";
 import type { CircularDetail, RetrievalMode, Supersession } from "@/types/api";
 
+/** An icon and its words; when the words wrap, the icon stays beside the first line. */
+function Marked({ icon, className, children }: { icon: ReactNode; className?: string; children: ReactNode }) {
+  return (
+    <span className={cn("inline-flex items-start gap-1.5", className)}>
+      <span className="flex h-[1.5em] shrink-0 items-center">{icon}</span>
+      <span>{children}</span>
+    </span>
+  );
+}
+
 function StateLine({ state, date }: { state: ForceState; date: string }) {
   const on = formatDate(date);
   switch (state.kind) {
     case "not-issued":
       return (
-        <span className="inline-flex items-center gap-1.5 text-ink-soft">
-          <Hourglass aria-hidden className="size-4" /> Not yet issued on {on}
-        </span>
+        <Marked icon={<Hourglass aria-hidden className="size-4" />} className="text-ink-soft">
+          Not yet issued on {on}
+        </Marked>
       );
     case "out-of-force":
       return (
-        <span className="inline-flex items-center gap-1.5 font-semibold text-impact-conflict">
-          <CircleSlash aria-hidden className="size-4" /> Out of force on {on} (since {formatDate(state.since)}
-          )
-        </span>
+        <Marked
+          icon={<CircleSlash aria-hidden className="size-4" />}
+          className="font-semibold text-impact-conflict"
+        >
+          Out of force on {on} (since {formatDate(state.since)})
+        </Marked>
       );
     case "unknown-date":
       return <span className="text-ink-soft">No issue date recorded, so its force on {on} is unknown</span>;
     default:
       return (
-        <span className="inline-flex flex-wrap items-center gap-1.5 font-semibold text-impact-covered">
-          <CircleCheck aria-hidden className="size-4" /> In force on {on}
+        <Marked
+          icon={<CircleCheck aria-hidden className="size-4" />}
+          className="font-semibold text-impact-covered"
+        >
+          In force on {on}
           {state.amendedBy.length ? <span className="font-normal text-ink">, as amended</span> : null}
-        </span>
+        </Marked>
       );
   }
 }

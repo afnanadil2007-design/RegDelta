@@ -18,6 +18,8 @@ htmlcov/
 # Node / frontend
 node_modules/
 frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
 *.tsbuildinfo
 
 # Model caches. sentence-transformers downloads to ~/.cache/huggingface by
