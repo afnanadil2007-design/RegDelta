@@ -40,6 +40,7 @@ class FindingDraft(TypedDict):
     clause_span_end: int | None
     quote_status: str
     verification_note: str | None
+    unlocated_quote: str | None
     verification_attempts: int
 
 

@@ -200,6 +200,7 @@ def finding_out(context: FindingContext) -> FindingOut:
         clause_span_end=f.clause_span_end,
         quote_status=f.quote_status,
         verification_note=f.verification_note,
+        unlocated_quote=f.unlocated_quote,
         verification_attempts=f.verification_attempts,
         analyst_decision=f.analyst_decision,
         decided_at=f.decided_at,

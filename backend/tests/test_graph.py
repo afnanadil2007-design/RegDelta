@@ -193,6 +193,7 @@ async def test_quotes_that_never_resolve_are_kept_as_unverified_not_dropped() ->
     # The circular quote did resolve; the clause quote has no offsets.
     assert draft["circular_span_start"] is not None
     assert draft["clause_span_start"] is None
+    assert draft["unlocated_quote"] == "margin is optional for retail clients"
 
 
 @pytest.mark.asyncio

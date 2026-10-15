@@ -13,9 +13,11 @@ Separates three things the original schema blurred:
   ``agent_steps.cost_usd`` so a model without a list price is reported as
   unknown cost rather than as free.
 
-It also records which provider/model produced an agent run, which extractor
-produced an obligation (left NULL — unknown — for existing rows), how many
-assessment tasks failed outright, and when an analyst decision was made.
+A FAILED finding keeps the quote that could not be located
+(``findings.unlocated_quote``). The migration also records which
+provider/model produced an agent run, which extractor produced an obligation
+(left NULL — unknown — for existing rows), how many assessment tasks failed
+outright, and when an analyst decision was made.
 
 Revision ID: 0004_evidence_provenance
 Revises: 0003_agent_run_seq
@@ -69,6 +71,9 @@ def upgrade() -> None:
     op.alter_column("findings", "confidence", existing_type=sa.Float(), nullable=True)
     op.execute("UPDATE findings SET confidence = NULL WHERE quote_status = 'NOT_APPLICABLE'")
     op.add_column("findings", sa.Column("verification_note", sa.Text(), nullable=True))
+    # The quote the judge claimed but that was not found, kept so the analyst
+    # can see exactly what the unverified interpretation rests on.
+    op.add_column("findings", sa.Column("unlocated_quote", sa.Text(), nullable=True))
     op.add_column("findings", sa.Column("decided_at", sa.DateTime(timezone=True), nullable=True))
 
     op.add_column("agent_runs", sa.Column("provider", sa.String(length=32), nullable=True))
@@ -101,6 +106,7 @@ def downgrade() -> None:
     op.drop_column("agent_runs", "provider")
 
     op.drop_column("findings", "decided_at")
+    op.drop_column("findings", "unlocated_quote")
     op.drop_column("findings", "verification_note")
     op.execute("UPDATE findings SET confidence = 0 WHERE confidence IS NULL")
     op.alter_column("findings", "confidence", existing_type=sa.Float(), nullable=False)

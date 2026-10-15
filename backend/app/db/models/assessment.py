@@ -100,6 +100,9 @@ class Finding(Base):
     )
     # Why the last verification attempt failed, when quote_status is FAILED.
     verification_note: Mapped[str | None] = mapped_column(Text)
+    # The judge's quote that was not found in its source (FAILED only). Which
+    # side it belongs to follows from the spans: the side without offsets.
+    unlocated_quote: Mapped[str | None] = mapped_column(Text)
     verification_attempts: Mapped[int] = mapped_column(Integer, default=0)
     analyst_decision: Mapped[AnalystDecision] = mapped_column(
         db_enum(AnalystDecision, "analyst_decision"),

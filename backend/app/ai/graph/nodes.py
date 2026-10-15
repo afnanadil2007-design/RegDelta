@@ -237,6 +237,7 @@ def _no_candidate_draft(
         clause_span_end=None,
         quote_status=QuoteStatus.NOT_APPLICABLE.value,
         verification_note=None,
+        unlocated_quote=None,
         verification_attempts=0,
     )
 
@@ -258,6 +259,7 @@ async def _persist(assessment_id: int, drafts: list[FindingDraft]) -> None:
                     clause_span_end=d["clause_span_end"],
                     quote_status=QuoteStatus(d["quote_status"]),
                     verification_note=d["verification_note"],
+                    unlocated_quote=d["unlocated_quote"],
                     verification_attempts=d["verification_attempts"],
                 )
                 for d in drafts
@@ -454,6 +456,9 @@ def _draft(
 ) -> FindingDraft:
     """A finding from a judgement; only quotes that resolved get offsets."""
     circular, clause_span = result.circular_span, result.clause_span
+    unlocated = None
+    if status is QuoteStatus.FAILED:
+        unlocated = judged.circular_span if circular is None else judged.clause_span
     return FindingDraft(
         obligation_id=task["obligation_id"],
         policy_clause_id=clause.id,
@@ -467,6 +472,7 @@ def _draft(
         clause_span_end=clause_span.char_end if clause_span else None,
         quote_status=status.value,
         verification_note=note,
+        unlocated_quote=unlocated or None,
         verification_attempts=attempts,
     )
 

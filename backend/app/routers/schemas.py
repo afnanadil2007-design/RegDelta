@@ -276,6 +276,8 @@ class FindingOut(BaseModel):
     clause_span_end: int | None
     quote_status: QuoteStatus
     verification_note: str | None
+    # FAILED only: the quote the judge claimed that is not in its source.
+    unlocated_quote: str | None
     verification_attempts: int
     analyst_decision: AnalystDecision
     decided_at: datetime | None
