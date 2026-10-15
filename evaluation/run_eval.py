@@ -303,9 +303,11 @@ async def persist(summary: dict[str, Any], label: str) -> None:
     """Store each mode's metrics as an evaluation run, for the evaluation page."""
     prov = summary["provenance"]
     code = prov["code"]
-    sha = code["git_sha"] + ("+dirty" if code["dirty"] else "")
+    # git_sha holds the commit only (the column is 40 characters); the dirty
+    # state and digest of uncommitted evaluated sources travel in config.
     config = {
         "label": label,
+        "dirty": code["dirty"],
         "dirty_digest": code["dirty_digest"],
         "models": prov["models"],
         "retrieval_config": prov["retrieval_config"],
@@ -318,7 +320,7 @@ async def persist(summary: dict[str, Any], label: str) -> None:
             run = await repo.add_run(
                 EvalRun(
                     suite=EvalSuite.RETRIEVAL,
-                    git_sha=sha[:64],
+                    git_sha=code["git_sha"],
                     mode=RetrievalMode(mode_name),
                     dataset=prov["data"]["sample_manifest"] or prov["data"]["gold_file"],
                     config=config,

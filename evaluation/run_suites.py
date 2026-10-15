@@ -234,9 +234,22 @@ async def run_performance() -> tuple[perf_metrics.RunStats | None, str]:
 
 
 async def persist(suite: EvalSuite, values: dict[str, float], sha: str) -> None:
+    """Store a suite's metrics. ``git_sha`` holds the commit (40 characters);
+    whether the evaluated sources differed from it lives in ``config``."""
+    identity = code_identity()
     async with get_sessionmaker()() as session:
         repo = EvaluationRepository(session)
-        run = await repo.add_run(EvalRun(suite=suite, git_sha=sha))
+        run = await repo.add_run(
+            EvalRun(
+                suite=suite,
+                git_sha=identity["git_sha"],
+                config={
+                    "dirty": identity["dirty"],
+                    "dirty_digest": identity["dirty_digest"],
+                    "label": sha,
+                },
+            )
+        )
         await repo.add_results(
             [
                 EvalResult(eval_run_id=run.id, metric_name=name, metric_value=float(value))

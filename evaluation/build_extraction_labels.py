@@ -41,9 +41,10 @@ from ingestion.generate_corpus import TOPICS
 
 # The templates the generator plants as obligations, with their placeholders
 # turned into a match pattern. Anything not matching one of these is not an
-# obligation, by construction.
+# obligation, by construction. Spaces match any whitespace: the PDF wraps long
+# sentences across lines, and a literal-space pattern silently missed those.
 _OBLIGATION_PATTERNS = [
-    re.compile(re.escape(template).replace(r"\{n\}", r"\d+"))
+    re.compile(re.escape(template).replace(r"\{n\}", r"\d+").replace(r"\ ", r"\s+"))
     for topic in TOPICS
     for template in topic.obligations
 ]
