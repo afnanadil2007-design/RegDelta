@@ -3,7 +3,8 @@
     python -m ingestion.seed
 
 Runs the whole pipeline in order: corpus → ingest → citation graph → policy
-pack → embeddings → gold set. Every step is idempotent, so re-running is safe.
+pack → embeddings → obligations (rule extractor) → gold set. Every step is
+idempotent, so re-running is safe.
 """
 
 from __future__ import annotations
@@ -72,13 +73,11 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Policy pack id {pack_id} indexed.")
 
     _run_module("ingestion.embed")
+    _run_module("ingestion.extract_obligations", "--mode", "rules")
     _run_module("evaluation.build_gold_set")
 
     print(
-        "\nSeed complete. Next:"
-        "\n  python -m ingestion.extract_obligations --mode rules"
-        "\n  python backend/run_api.py        (terminal 1)"
-        "\n  cd frontend && npm run dev       (terminal 2)"
+        "\nSeed complete. Next:\n  make dev-api      (terminal 1)\n  make dev-web      (terminal 2)"
     )
     return 0
 
