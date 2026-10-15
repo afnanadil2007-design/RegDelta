@@ -11,7 +11,9 @@
 	e2e-db e2e mcp
 
 # The project virtualenv when it exists, otherwise whatever python is on PATH (CI).
-PY := $(shell [ -x backend/.venv/bin/python ] && echo $(CURDIR)/backend/.venv/bin/python || echo python)
+# Expanded at each use (=, not :=), so `make setup` installs into the venv that
+# its own `venv` step has just created.
+PY = $(shell [ -x backend/.venv/bin/python ] && echo $(CURDIR)/backend/.venv/bin/python || echo python)
 TORCH_INDEX := https://download.pytorch.org/whl/cpu
 
 help: ## List available targets
