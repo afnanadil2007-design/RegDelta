@@ -48,7 +48,9 @@ class ManifestEntry:
     doc_type: str
     source_url: str
     pdf_filename: str
-    # Real-source provenance; absent for synthetic entries.
+    # Real-source provenance; absent for synthetic entries. ``source_url`` is
+    # the PDF itself; ``page_url`` the regulator's page that publishes it.
+    page_url: str | None = None
     retrieved_on: str | None = None
     sha256: str | None = None
     note: str | None = None
@@ -58,11 +60,15 @@ class ManifestEntry:
         return date.fromisoformat(self.issue_date) if self.issue_date else None
 
 
+_REQUIRED = {"circular_number", "title", "issue_date", "department", "doc_type", "source_url"}
+
+
 def write_manifest(entries: list[ManifestEntry], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         for entry in entries:
-            row = {k: v for k, v in asdict(entry).items() if v is not None or k == "issue_date"}
+            # Optional provenance fields are omitted when unset; required ones never are.
+            row = {k: v for k, v in asdict(entry).items() if v is not None or k in _REQUIRED}
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 

@@ -1,25 +1,14 @@
-"""Generate a deterministic SYNTHETIC SEBI-style corpus.
+"""Generate the deterministic SYNTHETIC SEBI-style corpus for the demo and tests.
 
-WHY THIS EXISTS
----------------
-``scrape_sebi.py`` targets the real sebi.gov.in listing, but the site renders
-circular detail pages client-side: the listing HTML yields links, and each
-detail page returns a JavaScript shell with no reference number, date, or PDF
-link in the markup. Fetching the real corpus therefore needs a headless
-browser, which is a dependency this project deliberately does not take.
+The corpus imitates the structure the pipeline depends on: SEBI reference-
+number families, a dense citation graph, supersession and amendment chains,
+and obligation language from the same topics as the policy manual. It is not
+regulation, and every page carries a banner saying so. Anything measured on it
+is reported as measured on synthetic data (docs/evaluation.md).
 
-So development and evaluation run on a synthetic corpus generated here. It is
-*structurally* faithful — real reference-number families, a dense
-cross-citation graph, supersession chains, and obligation language drawn from
-the same domains as the policy pack — which is what the retrieval, citation,
-and extraction code paths actually exercise. It is not, and does not claim to
-be, real regulation.
-
-EVERY metric measured against this corpus must be reported as measured on
-synthetic data. See docs/decisions/0003-citation-graph-gold-set.md.
-
-The generator is seeded, so the corpus (and therefore every evaluation number)
-is reproducible from the seed alone.
+The generator is seeded, so the corpus, and every number measured on it, can
+be rebuilt from the seed. Real documents live in a separate corpus
+(``scrape_sebi.py``, ``data/real_sources``).
 """
 
 from __future__ import annotations
