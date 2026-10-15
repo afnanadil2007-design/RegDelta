@@ -71,8 +71,8 @@ test-backend: ## Backend tests against the regdelta_test database (created if mi
 	POSTGRES_DB=regdelta_test $(PY) -m ingestion.prepare_db
 	cd backend && POSTGRES_DB=regdelta_test PYTHONPATH=.:.. $(PY) -m pytest -q
 
-test-frontend: ## Typecheck, unit tests and production build
-	cd frontend && npm run typecheck && npx vitest run && npm run build
+test-frontend: ## Lint, format check, typecheck, unit tests and production build
+	cd frontend && npm run lint && npm run format:check && npm run typecheck && npx vitest run && npm run build
 
 lint: ## Ruff lint and format check over all Python
 	$(PY) -m ruff check .

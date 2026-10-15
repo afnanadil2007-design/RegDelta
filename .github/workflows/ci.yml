@@ -124,6 +124,11 @@ jobs:
       - name: Install
         working-directory: frontend
         run: npm ci
+      - name: Lint and format
+        working-directory: frontend
+        run: |
+          npm run lint
+          npm run format:check
       - name: Typecheck (app and end-to-end specs)
         working-directory: frontend
         run: npm run typecheck
