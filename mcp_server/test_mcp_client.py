@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -26,9 +27,13 @@ async def main() -> int:
     # The server is launched as a subprocess speaking MCP on stdin/stdout.
     from fastmcp.client.transports import PythonStdioTransport
 
+    # A STDIO client passes the child only a minimal environment by default, so
+    # the caller's POSTGRES_* settings would be dropped and the server would
+    # connect to the default database instead of the one this check was run on.
     transport = PythonStdioTransport(
         script_path=str(ROOT / "mcp_server" / "server.py"),
         python_cmd=sys.executable,
+        env=dict(os.environ),
     )
 
     async with Client(transport) as client:
