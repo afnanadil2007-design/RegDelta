@@ -32,10 +32,11 @@ from pathlib import Path
 
 import pymupdf
 
-from ingestion.manifest import DATA_DIR, MANIFEST_PATH, ManifestEntry, write_manifest
+from ingestion.manifest import ManifestEntry, corpus_paths, write_manifest
 
 SEED = 20240101
-SYNTHETIC_BANNER = "[SYNTHETIC CORPUS — NOT A REAL SEBI CIRCULAR]"
+# ASCII only: see write_pdf.
+SYNTHETIC_BANNER = "[SYNTHETIC CORPUS - NOT A REAL SEBI CIRCULAR]"
 
 DEPARTMENTS = {
     "MIRSD": "Market Intermediaries Regulation and Supervision Department",
@@ -294,7 +295,20 @@ def generate(count: int, seed: int = SEED) -> list[GeneratedCircular]:
 
 
 def write_pdf(circular: GeneratedCircular, directory: Path) -> Path:
+    """Render the circular with PyMuPDF's built-in Helvetica.
+
+    That font only encodes Latin-1; anything else (an em dash, a rupee sign,
+    curly quotes) is written into the PDF as "?", silently corrupting the
+    corpus. Fail loudly instead.
+    """
     path = directory / (circular.number.replace("/", "_") + ".pdf")
+    for text in circular.pages:
+        try:
+            text.encode("latin-1")
+        except UnicodeEncodeError as exc:
+            raise ValueError(
+                f"{circular.number}: text not encodable in the PDF font: {exc}"
+            ) from exc
     doc = pymupdf.open()
     for text in circular.pages:
         page = doc.new_page()
@@ -310,12 +324,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=SEED)
     args = parser.parse_args(argv)
 
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    paths = corpus_paths("synthetic")
+    paths.pdf_dir.mkdir(parents=True, exist_ok=True)
     circulars = generate(args.count, args.seed)
 
     entries: list[ManifestEntry] = []
     for circular in circulars:
-        path = write_pdf(circular, DATA_DIR)
+        path = write_pdf(circular, paths.pdf_dir)
         entries.append(
             ManifestEntry(
                 circular_number=circular.number,
@@ -327,10 +342,10 @@ def main(argv: list[str] | None = None) -> int:
                 pdf_filename=path.name,
             )
         )
-    write_manifest(entries, MANIFEST_PATH)
+    write_manifest(entries, paths.manifest)
 
-    print(f"Generated {len(entries)} SYNTHETIC circulars in {DATA_DIR}")
-    print(f"Manifest: {MANIFEST_PATH}")
+    print(f"Generated {len(entries)} SYNTHETIC circulars in {paths.pdf_dir}")
+    print(f"Manifest: {paths.manifest}")
     print("These are NOT real SEBI circulars — see the module docstring.")
     return 0
 

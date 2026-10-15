@@ -30,9 +30,10 @@ frontend/dist/
 # Local run artifacts (logs, screenshots, eval scratch output)
 /.artifacts/
 
-# Data artifacts (PDFs shipped via manifest + fetch script)
-data/circulars/*.pdf
-data/circulars/*.PDF
+# Corpus PDFs: synthetic ones are regenerated from the seed, real ones are
+# fetched from the regulator. Only the manifests are committed.
+/data/synthetic/pdf/
+/data/real_sources/pdf/
 
 # OS / editor
 .DS_Store
@@ -50,3 +51,12 @@ backend/pyvenv.cfg
 
 # Docker volumes
 pgdata/
+
+# Impeccable working files: decision boards and review captures are local;
+# PRODUCT.md, DESIGN.md and the surface briefs are the committed record.
+/.impeccable/mocks/
+/.impeccable/review/
+/.impeccable/build/
+/.impeccable/live/
+/.impeccable/questions/
+/.impeccable/*.cache.json

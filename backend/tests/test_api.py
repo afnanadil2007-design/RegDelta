@@ -88,7 +88,7 @@ def test_circular_detail_offsets_resolve_against_full_text(
         assert text[paragraph["char_start"] : paragraph["char_end"]] == paragraph["text"]
     for obligation in body["obligations"]:
         assert text[obligation["char_start"] : obligation["char_end"]] == obligation["text"]
-        assert obligation["extractor"] == "rules-v1"
+        assert obligation["extractor"] == "rules-v2"
         assert obligation["model_confidence"] is None  # the rules extractor has none
 
 

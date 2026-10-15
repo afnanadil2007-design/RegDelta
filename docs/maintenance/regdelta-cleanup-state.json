@@ -1,10 +1,10 @@
 {
-  "updated": "2026-10-15T09:00:00+05:30",
-  "phase": "2 - domain correctness (in progress, uncommitted)",
+  "updated": "2026-10-15T11:30:00+05:30",
+  "phase": "3 - frontend overhaul: Impeccable direction round (re-roll 1, bolder register) open",
   "repo": "/home/afnan/Downloads/Reg-Delta/RegDelta",
   "branch": "repair/regdelta-cleanup",
   "base_sha": "f4a4b57edc5807b5c1ec57072b04db6b8f619ead",
-  "dirty_tree": "Phase 2 WIP: migration 0004, models, config (deterministic default provider, SecretStr keys, provider_readiness), gateway (deterministic dispatch, call semaphore, cost None when unpriced), app/ai/deterministic.py, app/ai/extraction/rules.py, prompts.render_prompt, graph state/nodes/build/tracing rewrite (CallBudget, incremental persistence, FAILED-quote findings)",
+  "dirty_tree": "PRODUCT.md; docs/maintenance/frontend-baseline.md; docs/screenshots/before/*; backend/app/ai/extraction/rules.py (rules-v2, untested); .impeccable/mocks/decision/* (dev-only)",
   "python_env": "backend/.venv (uv 0.12.5, CPython 3.11.16, torch 2.14.1+cpu)",
   "node": "nvm 20.20.2 for frontend (matches CI); 22.23.2 for playwright-cli",
   "services": {
@@ -28,13 +28,23 @@
   "env_for_commands": "PATH=backend/.venv/bin:$PATH POSTGRES_HOST=localhost POSTGRES_PORT=55432 POSTGRES_DB=regdelta_test",
   "completed_gates": [
     "A04 baseline",
-    "Phase 1 gate (commit 941d9d1)",
+    "Phase 1 gate (941d9d1)",
     "LF normalization (14b28d7)",
-    "ruff unify+format (55c4605)"
+    "ruff unify+format (55c4605)",
+    "Phase 2 backend (90e039c, 287 passed)",
+    "E01 baseline captures + Taste lint/inspect",
+    "Impeccable init -> PRODUCT.md",
+    "Awesome Design reference chosen: VoltAgent/awesome-design-md@3b60532 design-md/ibm"
   ],
-  "next_action": "Rewrite backend/app/services/assessment.py for the new graph (CallBudget, wall clock -> CAPPED, safe errors, duplicate-launch guard, interrupted-run recovery, provider/model on AgentRun); then routers (assessment API v2, SSE snapshot+upsert), repositories, citation graph idempotency, temporal supersession-type fix, search validation; then update tests and run pytest/mypy/ruff.",
-  "outstanding_failures": [
-    "backend does not import until services/assessment.py is updated (references removed impact_of fallback / AssessmentState fields)"
-  ],
-  "head": "55c4605"
+  "next_action": "Write sketches exposure-record.html, law-lexicon.html, boarding-pass.html (+ rewrite canon.html) under .impeccable/mocks/decision/, then run `impeccable serve-question --wait --key 11deabc9` in background; meanwhile test rules-v2 extractor and fix generator latin-1 banner.",
+  "outstanding_failures": [],
+  "head": "90e039c",
+  "decision_round": {
+    "url": "http://127.0.0.1:33081/",
+    "key": "11deabc9",
+    "seed_key": "54afe040",
+    "round": "reroll 1, register bolder",
+    "payload": ".impeccable/mocks/decision/payload-reroll1.json",
+    "first_answer": "reroll (bolder)"
+  }
 }

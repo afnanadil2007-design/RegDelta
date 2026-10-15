@@ -22,13 +22,12 @@ from pathlib import Path
 
 import httpx
 
-from ingestion.manifest import (
-    DATA_DIR,
-    MANIFEST_PATH,
-    ManifestEntry,
-    read_manifest,
-    write_manifest,
-)
+from ingestion.manifest import ManifestEntry, corpus_paths, read_manifest, write_manifest
+
+# The scraper only ever writes the real-source corpus, never the synthetic one.
+_PATHS = corpus_paths("real")
+DATA_DIR = _PATHS.pdf_dir
+MANIFEST_PATH = _PATHS.manifest
 
 SEBI_BASE = "https://www.sebi.gov.in"
 LISTING_PATH = "/sebiweb/home/HomeAction.do?doListing=yes&sid=1&ssid=7&smid=0"
