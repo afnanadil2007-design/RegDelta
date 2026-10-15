@@ -193,7 +193,9 @@ class Obligation(Base):
     modality: Mapped[str | None] = mapped_column(String(32))
     char_start: Mapped[int] = mapped_column(Integer)
     char_end: Mapped[int] = mapped_column(Integer)
-    # The LLM extractor's self-reported score, or the rules extractor's fixed
-    # 0.55. Neither is calibrated.
+    # The LLM extractor's self-reported score; null for the rules extractor,
+    # which has none. Not calibrated.
     confidence: Mapped[float | None] = mapped_column(Float)
+    # "rules-v1" or "llm:<model>"; null for rows created before migration 0004.
+    extractor: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

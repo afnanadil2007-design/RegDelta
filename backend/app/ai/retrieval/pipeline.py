@@ -8,9 +8,11 @@ Order, fixed by the architecture and not to be varied without stating why:
                                                                  ─ threshold
 
 Both retrievers run over the *same* metadata and ``as_of`` filter, so fusion
-compares like with like. Below ``RELEVANCE_THRESHOLD`` the pipeline returns an
-explicit no-result signal: callers must treat that as a refusal, not as an
-empty list they can quietly ignore.
+compares like with like. In the reranked mode, a best score below
+``RELEVANCE_THRESHOLD`` makes the pipeline refuse: it returns no hits and sets
+``below_threshold``, and callers must treat that as a refusal, not as an empty
+list they can quietly ignore. The other modes have no threshold — their raw
+scores (cosine, ts_rank_cd, RRF) are not on a scale the setting applies to.
 
 ``mode`` exists so the evaluation harness and the UI traverse identical code —
 an ablation that measured a different code path than production would be
@@ -21,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,16 +57,29 @@ class RetrievedChunk:
     rerank_score: float | None = None
 
 
+ScoreKind = Literal["cosine_similarity", "ts_rank_cd", "rrf", "cross_encoder_sigmoid"]
+
+# What ``RetrievedChunk.score`` means in each mode.
+SCORE_KIND: dict[RetrievalMode, ScoreKind] = {
+    RetrievalMode.DENSE: "cosine_similarity",
+    RetrievalMode.LEXICAL: "ts_rank_cd",
+    RetrievalMode.HYBRID: "rrf",
+    RetrievalMode.HYBRID_RERANK: "cross_encoder_sigmoid",
+}
+
+
 @dataclass
 class RetrievalResult:
     """The pipeline's output, including why it may be empty."""
 
     hits: list[RetrievedChunk] = field(default_factory=list)
     mode: RetrievalMode = RetrievalMode.HYBRID_RERANK
-    # True when nothing cleared the relevance threshold. Callers MUST refuse
-    # rather than answer from an empty context.
+    # True when the reranked mode's best score fell below the threshold.
+    # Callers MUST refuse rather than answer from an empty context.
     below_threshold: bool = False
     top_score: float | None = None
+    # The threshold applied, or None for modes that have none.
+    threshold: float | None = None
     # Chunks that would have ranked but were removed by the as_of filter.
     excluded_by_temporal_filter: list[int] = field(default_factory=list)
 
@@ -85,8 +101,14 @@ async def retrieve(
     filters: SearchFilters | None = None,
     settings: Settings | None = None,
     top_k: int | None = None,
+    apply_threshold: bool = True,
 ) -> RetrievalResult:
-    """Run the pipeline in the requested mode."""
+    """Run the pipeline in the requested mode.
+
+    ``apply_threshold=False`` is for evaluation only: hits are returned even
+    when the result would be refused, with ``below_threshold`` still set, so
+    ranking quality and refusal can be measured from one identical run.
+    """
     settings = settings or get_settings()
     filters = filters or SearchFilters()
     top_k = top_k or settings.rerank_top_k
@@ -112,7 +134,7 @@ async def retrieve(
     excluded = await _temporal_exclusions(repo, query, embedding, use_lexical, filters, settings)
 
     result = await _assemble(
-        session, query, mode, dense_hits, lexical_hits, settings, top_k, excluded
+        session, query, mode, dense_hits, lexical_hits, settings, top_k, excluded, apply_threshold
     )
 
     log.info(
@@ -241,14 +263,17 @@ async def _assemble(
     settings: Settings,
     top_k: int,
     excluded: list[int],
+    apply_threshold: bool,
 ) -> RetrievalResult:
     """Fuse, optionally rerank, threshold, and hydrate into RetrievedChunks."""
+    threshold = settings.relevance_threshold if mode is RetrievalMode.HYBRID_RERANK else None
     ordered = _order_candidates(mode, dense_hits, lexical_hits, settings)
     if not ordered:
         return RetrievalResult(
             mode=mode,
             below_threshold=False,
             top_score=None,
+            threshold=threshold,
             excluded_by_temporal_filter=excluded,
         )
 
@@ -268,18 +293,16 @@ async def _assemble(
     hits = _hydrate(candidates[:top_k], chunk_map, mode, rerank_scores)
 
     top_score = hits[0].score if hits else None
-    # Only the reranked mode has a calibrated score to threshold on; the raw
-    # cosine / ts_rank / RRF scales are not comparable to the setting.
-    below = (
-        mode is RetrievalMode.HYBRID_RERANK
-        and top_score is not None
-        and top_score < settings.relevance_threshold
-    )
+    # Only the cross-encoder's sigmoid output lives on the 0..1 scale the
+    # threshold is set in (it is not a calibrated probability either); raw
+    # cosine, ts_rank_cd and RRF values are not comparable to the setting.
+    below = threshold is not None and top_score is not None and top_score < threshold
 
     return RetrievalResult(
-        hits=[] if below else hits,
+        hits=[] if below and apply_threshold else hits,
         mode=mode,
         below_threshold=below,
         top_score=top_score,
+        threshold=threshold,
         excluded_by_temporal_filter=excluded,
     )

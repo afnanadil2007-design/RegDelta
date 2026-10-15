@@ -155,7 +155,14 @@ async def build_graph_for_circular(
 
 
 async def build_graph(session: AsyncSession) -> GraphReport:
-    """Rebuild the citation graph across the whole corpus."""
+    """Rebuild the citation graph across the whole corpus.
+
+    A rebuild, not an append: existing edges are deleted in the same
+    transaction, so running it twice yields the same graph rather than
+    duplicate edges.
+    """
+    await CitationRepository(session).delete_all()
+    await SupersessionRepository(session).delete_all()
     by_number, by_date = await _build_lookup(session)
     report = GraphReport()
 

@@ -100,7 +100,53 @@ least once every financial year.
     ],
 )
 
+# The circular FIXTURE_MARGIN supersedes, so the graph can resolve that edge.
+FIXTURE_MARGIN_2020 = FixtureCircular(
+    circular_number="SEBI/HO/MIRSD/CIR/P/2020/99",
+    title="Margin reporting timelines",
+    pages=[
+        """SEBI/HO/MIRSD/CIR/P/2020/99
+
+October 06, 2020
+
+MARGIN REPORTING TIMELINES
+
+1. Stock brokers shall report instances of short-collection of margin to the
+Stock Exchange by T+3 day.
+
+2. Stock brokers shall retain evidence of margin collection for a period of
+three years.
+"""
+    ],
+)
+
+# Amends FIXTURE_CYBER without taking it out of force.
+FIXTURE_CYBER_AMENDMENT = FixtureCircular(
+    circular_number="SEBI/HO/ITD/ITD-PoD/CIR/P/2025/12",
+    title="Amendment to the cyber security framework",
+    pages=[
+        """SEBI/HO/ITD/ITD-PoD/CIR/P/2025/12
+
+March 03, 2025
+
+AMENDMENT TO THE CYBER SECURITY FRAMEWORK
+
+1. Paragraph 2 of SEBI/HO/ITD/ITD-PoD/CIR/P/2024/44 shall stand modified so that
+intermediaries shall report cyber security incidents to SEBI within two hours
+of detection.
+"""
+    ],
+)
+
 ALL_FIXTURES = [FIXTURE_MARGIN, FIXTURE_KYC, FIXTURE_CYBER]
+# Ingested by the session corpus (tests/conftest.py), with these issue dates.
+CORPUS_FIXTURES = [
+    (FIXTURE_MARGIN_2020, "2020-10-06"),
+    (FIXTURE_MARGIN, "2024-02-12"),
+    (FIXTURE_KYC, "2024-04-05"),
+    (FIXTURE_CYBER, "2024-06-18"),
+    (FIXTURE_CYBER_AMENDMENT, "2025-03-03"),
+]
 
 
 def write_fixture_pdf(fixture: FixtureCircular, directory: Path) -> Path:

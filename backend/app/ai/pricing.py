@@ -4,8 +4,9 @@ Sources: Anthropic's and Groq's published API list prices. These drive an
 *estimated* API cost — list price × token count — not a billed amount; a Groq
 free-tier run costs nothing while still showing a non-zero estimate here, which
 is the honest way to report "what this would cost at list price". A model with
-no entry yields a cost of 0.0 and a warning rather than a wrong number, so an
-unpriced model is visible in the logs instead of silently skewing the report.
+no entry has an *unknown* cost: ``estimate_cost_usd`` returns None, the
+gateway logs a warning, and the assessment reports its cost as partial rather
+than presenting the unpriced calls as free.
 """
 
 from __future__ import annotations
@@ -22,6 +23,8 @@ class ModelPrice:
 
 
 PRICING: dict[str, ModelPrice] = {
+    # The deterministic provider runs locally and calls no API.
+    "regdelta-rules-v1": ModelPrice(0.0, 0.0),
     # Anthropic (list price).
     "claude-opus-5": ModelPrice(5.00, 25.00),
     "claude-opus-4-8": ModelPrice(5.00, 25.00),

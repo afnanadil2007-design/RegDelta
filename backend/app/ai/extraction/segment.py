@@ -62,14 +62,41 @@ class SegmentedParagraph:
     text_quality_score: float | None
 
 
+# PDF text layers carry presentation artefacts that break search and quote
+# matching while looking identical on screen. This is deliberately not NFKC,
+# which would also rewrite characters that carry meaning in regulatory text
+# (superscript footnote marks, ½, ™).
+_PRESENTATION_FORMS = str.maketrans(
+    {
+        "\ufb00": "ff",
+        "\ufb01": "fi",
+        "\ufb02": "fl",
+        "\ufb03": "ffi",
+        "\ufb04": "ffl",
+        "\ufb05": "st",
+        "\ufb06": "st",
+        "\u00a0": " ",  # no-break space
+        "\u2007": " ",  # figure space
+        "\u2009": " ",  # thin space
+        "\u202f": " ",  # narrow no-break space
+        "\u00ad": None,  # soft hyphen: a line-break hint, not text
+        "\u200b": None,  # zero-width space
+        "\u200c": None,  # zero-width non-joiner
+        "\u200d": None,  # zero-width joiner
+        "\ufeff": None,  # byte-order mark
+    }
+)
+
+
 def normalise(raw: str) -> str:
     """Normalise page text before any offset is computed.
 
     Applied once, here, so that stored offsets always index the normalised
-    string. Collapses Windows line endings, non-breaking spaces, and runs of
-    blank lines; trims trailing whitespace per line.
+    string: line endings unified, PDF presentation forms resolved (ligatures
+    expanded, soft hyphens and zero-width characters removed, exotic spaces
+    made plain), trailing whitespace trimmed per line, blank runs collapsed.
     """
-    text = raw.replace("\r\n", "\n").replace("\r", "\n").replace(" ", " ")
+    text = raw.replace("\r\n", "\n").replace("\r", "\n").translate(_PRESENTATION_FORMS)
     text = re.sub(r"[ \t]+\n", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()

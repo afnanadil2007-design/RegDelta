@@ -70,14 +70,16 @@ async def run(limit: int | None, use_vision: bool) -> int:
 
     print(
         f"\ningested={len(report.ingested)}  skipped={len(report.skipped)}  "
-        f"failed={len(report.failed)}\n"
+        f"conflicts={len(report.conflicts)}  failed={len(report.failed)}\n"
         f"pages={report.total_pages}  vision_pages={report.vision_pages}  "
         f"vision_fraction={report.vision_fraction:.1%}"
     )
+    for number, reason in report.conflicts:
+        print(f"  CONFLICT {number}: {reason}", file=sys.stderr)
     for number, error in report.failed:
         print(f"  FAILED {number}: {error}", file=sys.stderr)
 
-    return 0 if not report.failed else 2
+    return 0 if not (report.failed or report.conflicts) else 2
 
 
 def main(argv: list[str] | None = None) -> int:

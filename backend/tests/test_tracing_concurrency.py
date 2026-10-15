@@ -54,7 +54,9 @@ async def agent_run_id(migrated_database: str) -> int:
         )
         session.add(assessment)
         await session.flush()
-        run = AgentRun(assessment_id=assessment.id, status=AssessmentStatus.RUNNING)
+        run = AgentRun(
+            assessment_id=assessment.id, graph_version="test", status=AssessmentStatus.RUNNING
+        )
         session.add(run)
         await session.flush()
         run_pk = run.id

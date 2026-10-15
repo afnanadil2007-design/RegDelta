@@ -12,12 +12,15 @@ state; a short-lived session per write is the safe shape.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.ai.gateway import LLMResponse
+from app.ai.graph.budget import BudgetExhausted
 from app.core.logging import get_logger
 from app.db.models.assessment import AgentStep
 from app.db.models.enums import StepStatus
@@ -50,7 +53,16 @@ class StepRecord:
     outputs: dict[str, Any] = field(default_factory=dict)
     tokens_in: int = 0
     tokens_out: int = 0
-    cost_usd: float = 0.0
+    # Becomes None (unknown) as soon as one call in the step is unpriced.
+    cost_usd: float | None = 0.0
+
+    def add_call(self, response: LLMResponse) -> None:
+        self.tokens_in += response.tokens_in
+        self.tokens_out += response.tokens_out
+        if self.cost_usd is not None and response.cost_usd is not None:
+            self.cost_usd += response.cost_usd
+        else:
+            self.cost_usd = None
 
 
 class Tracer:
@@ -93,6 +105,15 @@ class Tracer:
         error: str | None = None
         try:
             yield record
+        except asyncio.CancelledError:
+            # The run's wall clock cancelled this node; it did not succeed.
+            status = StepStatus.ERROR
+            error = "Cancelled: the assessment stopped before this step finished."
+            raise
+        except BudgetExhausted:
+            status = StepStatus.ERROR
+            error = "Skipped: the assessment's call budget was spent."
+            raise
         except Exception as exc:  # noqa: BLE001 - the trace must record failures
             status = StepStatus.ERROR
             error = f"{type(exc).__name__}: {exc}"

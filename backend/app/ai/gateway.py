@@ -1,15 +1,18 @@
 """The single chokepoint for every LLM and vision call in RegDelta.
 
-No other module may instantiate a provider client. This one owns:
-provider selection, model pinning, retries with exponential backoff, token
-counting, cost accounting, and per-call structured logging carrying the run_id.
+No other module may instantiate a provider client. This one owns provider
+selection, model pinning, retries with exponential backoff, a bound on
+concurrent calls, token counting, cost accounting, and per-call structured
+logging carrying the run_id.
 
-Two providers are wired:
+Three providers are wired:
 
-* ``anthropic`` — the newer Messages API with ``output_config`` (effort +
-  ``json_schema`` structured output) and native vision blocks.
+* ``deterministic`` — the rule-based stand-in in ``app.ai.deterministic``: no
+  network, no key, no cost. The default; used by the synthetic demo and tests.
 * ``groq`` — Groq's OpenAI-compatible endpoint, driven through the ``openai``
-  client with ``base_url`` pointed at Groq. This is the free-tier demo path.
+  client with ``base_url`` pointed at Groq.
+* ``anthropic`` — the Messages API with ``output_config`` (effort +
+  ``json_schema`` structured output) and native vision blocks.
 
 The LangGraph nodes never see any of this — they call ``complete`` /
 ``complete_vision`` and receive a provider-agnostic :class:`LLMResponse`. All
@@ -38,13 +41,12 @@ from tenacity import (
     wait_exponential,
 )
 
+from app.ai import deterministic
 from app.ai.pricing import estimate_cost_usd
 from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
 
 log = get_logger("app.ai.gateway")
-
-Role = Literal["user", "assistant"]
 
 # Stable machine codes so the API can distinguish failure modes without parsing
 # free text. Surfaced to the analyst as a short reason; the full technical
@@ -57,6 +59,7 @@ ErrorCode = Literal[
     "provider_unavailable",
     "invalid_request",
     "parse_error",
+    "unsupported",
     "provider_error",
 ]
 
@@ -68,6 +71,7 @@ _HUMAN_MESSAGE: dict[str, str] = {
     "provider_unavailable": "The LLM provider is temporarily unavailable.",
     "invalid_request": "The LLM provider rejected the request.",
     "parse_error": "The LLM response could not be parsed.",
+    "unsupported": "The selected provider does not support this request.",
     "provider_error": "The LLM provider could not complete the request.",
 }
 
@@ -107,7 +111,9 @@ class LLMResponse:
     provider: str
     tokens_in: int
     tokens_out: int
-    cost_usd: float
+    # Estimated list-price cost; None when the model has no price in
+    # app/ai/pricing.py. An unknown cost is never reported as free.
+    cost_usd: float | None
     latency_ms: int
     stop_reason: str | None = None
     # True when the provider declined the request outright; callers must treat
@@ -202,6 +208,17 @@ class LLMGateway:
         # httpx pools) and can observe a half-assigned one, surfacing as spurious
         # connection errors. Double-checked locking builds it exactly once.
         self._client_lock = threading.Lock()
+        # Bounds concurrent provider calls across the graph's worker threads.
+        self._call_slots = threading.BoundedSemaphore(self.settings.llm_max_concurrency)
+
+    @property
+    def provider(self) -> str:
+        return self.settings.llm_provider
+
+    @property
+    def model(self) -> str:
+        """The model recorded on runs this gateway serves."""
+        return self.settings.effective_model
 
     def _http_timeout(self) -> Any:
         """Generous timeout: the default 5s connect is too tight under the CPU
@@ -219,10 +236,11 @@ class LLMGateway:
                 if self._client is None:
                     import anthropic
 
-                    if not self.settings.anthropic_api_key:
+                    key = self.settings.anthropic_api_key
+                    if key is None or not key.get_secret_value():
                         raise GatewayError("ANTHROPIC_API_KEY is not set.", code="missing_api_key")
                     self._client = anthropic.Anthropic(
-                        api_key=self.settings.anthropic_api_key,
+                        api_key=key.get_secret_value(),
                         max_retries=0,  # this module owns retries; see module docstring
                         timeout=self._http_timeout(),
                     )
@@ -235,10 +253,11 @@ class LLMGateway:
                 if self._client is None:
                     from openai import OpenAI
 
-                    if not self.settings.groq_api_key:
+                    key = self.settings.groq_api_key
+                    if key is None or not key.get_secret_value():
                         raise GatewayError("GROQ_API_KEY is not set.", code="missing_api_key")
                     self._client = OpenAI(
-                        api_key=self.settings.groq_api_key,
+                        api_key=key.get_secret_value(),
                         base_url=self.settings.groq_base_url,
                         max_retries=0,  # this module owns retries; see module docstring
                         timeout=self._http_timeout(),
@@ -262,7 +281,7 @@ class LLMGateway:
             image_png=None,
             system=system,
             max_tokens=max_tokens,
-            model=model or self.settings.llm_model,
+            model=model or self.model,
             json_schema=json_schema,
         )
 
@@ -297,39 +316,53 @@ class LLMGateway:
         json_schema: dict[str, Any] | None,
     ) -> LLMResponse:
         provider = self.settings.llm_provider
-        started = time.perf_counter()
-        try:
-            if provider == "anthropic":
-                normalized = self._anthropic_with_retry(
-                    prompt,
-                    image_png=image_png,
-                    system=system,
-                    max_tokens=max_tokens,
-                    model=model,
-                    json_schema=json_schema,
-                )
-            elif provider == "groq":
-                normalized = self._groq_with_retry(
-                    prompt,
-                    image_png=image_png,
-                    system=system,
-                    max_tokens=max_tokens,
-                    model=model,
-                    json_schema=json_schema,
-                )
-            else:  # pragma: no cover - Provider Literal is exhaustive
+        with self._call_slots:
+            started = time.perf_counter()
+            try:
+                if provider == "deterministic":
+                    normalized = self._call_deterministic(prompt, image_png=image_png)
+                elif provider == "anthropic":
+                    normalized = self._anthropic_with_retry(
+                        prompt,
+                        image_png=image_png,
+                        system=system,
+                        max_tokens=max_tokens,
+                        model=model,
+                        json_schema=json_schema,
+                    )
+                else:
+                    normalized = self._groq_with_retry(
+                        prompt,
+                        image_png=image_png,
+                        system=system,
+                        max_tokens=max_tokens,
+                        model=model,
+                        json_schema=json_schema,
+                    )
+            except RetryError as exc:
+                cause = exc.last_attempt.exception()
+                code: ErrorCode = getattr(cause, "code", "provider_unavailable")
                 raise GatewayError(
-                    f"LLM_PROVIDER={provider!r} is not supported.", code="invalid_request"
-                )
-        except RetryError as exc:
-            cause = exc.last_attempt.exception()
-            code: ErrorCode = getattr(cause, "code", "provider_unavailable")
-            raise GatewayError(
-                f"{provider} call failed after {self.settings.llm_max_retries} attempts: {cause}",
-                code=code,
-            ) from exc
+                    f"{provider} call failed after {self.settings.llm_max_retries} attempts: "
+                    f"{cause}",
+                    code=code,
+                ) from exc
+            return self._finalize(normalized, model=model, provider=provider, started=started)
 
-        return self._finalize(normalized, model=model, provider=provider, started=started)
+    # --- deterministic ---------------------------------------------------
+
+    @staticmethod
+    def _call_deterministic(prompt: str, *, image_png: bytes | None) -> _Normalized:
+        if image_png is not None:
+            raise GatewayError(
+                "the deterministic provider cannot transcribe images", code="unsupported"
+            )
+        try:
+            text = deterministic.complete(prompt)
+        except deterministic.DeterministicTaskError as exc:
+            raise GatewayError(str(exc), code="unsupported") from exc
+        # No model consumed tokens; reporting zero keeps budgets honest.
+        return _Normalized(text=text, tokens_in=0, tokens_out=0, stop_reason="rule", refused=False)
 
     # --- anthropic -------------------------------------------------------
 
@@ -396,9 +429,7 @@ class LLMGateway:
             ) from exc
 
         refused = raw.stop_reason == "refusal"
-        text = (
-            "" if refused else "".join(block.text for block in raw.content if block.type == "text")
-        )
+        text = "" if refused else "".join(b.text for b in raw.content if b.type == "text")
         return _Normalized(
             text=text,
             tokens_in=int(getattr(raw.usage, "input_tokens", 0) or 0),
@@ -535,7 +566,6 @@ class LLMGateway:
         cost = estimate_cost_usd(model, n.tokens_in, n.tokens_out)
         if cost is None:
             log.warning("gateway.unpriced_model", extra={"model": model})
-            cost = 0.0
 
         log.info(
             "gateway.call",
@@ -544,7 +574,7 @@ class LLMGateway:
                 "model": model,
                 "tokens_in": n.tokens_in,
                 "tokens_out": n.tokens_out,
-                "cost_usd": round(cost, 6),
+                "cost_usd": None if cost is None else round(cost, 6),
                 "latency_ms": latency_ms,
                 "stop_reason": n.stop_reason,
                 "refused": n.refused,

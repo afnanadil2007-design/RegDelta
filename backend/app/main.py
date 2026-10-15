@@ -12,6 +12,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 # psycopg's async driver cannot run on Windows' default ProactorEventLoop, and
@@ -22,7 +23,12 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from app.core.config import get_settings
-from app.core.errors import ApiError, api_error_handler, unhandled_error_handler
+from app.core.errors import (
+    ApiError,
+    api_error_handler,
+    unhandled_error_handler,
+    validation_error_handler,
+)
 from app.core.logging import configure_logging, get_logger
 from app.routers import assessments, circulars, evaluation, health, policy, search
 
@@ -48,11 +54,31 @@ async def _warm_models() -> None:
         log.exception("regdelta.model_warmup_failed")
 
 
+async def _recover_interrupted_runs() -> None:
+    """Fail runs a previous process left mid-flight; never block startup."""
+    try:
+        from app.services.assessment import recover_interrupted_runs
+
+        await recover_interrupted_runs()
+    except Exception:  # noqa: BLE001 - e.g. database not reachable yet
+        log.exception("regdelta.recovery_failed")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()  # validates env fail-fast before serving traffic
     configure_logging(settings.log_level)
-    log.info("regdelta.startup", extra={"env": settings.env, "provider": settings.llm_provider})
+    ready, reason = settings.provider_readiness()
+    log.info(
+        "regdelta.startup",
+        extra={
+            "env": settings.env,
+            "provider": settings.llm_provider,
+            "provider_ready": ready,
+            "provider_reason": reason,
+        },
+    )
+    await _recover_interrupted_runs()
     warm_task = asyncio.create_task(_warm_models()) if settings.warm_models_on_startup else None
     yield
     if warm_task is not None:
@@ -64,7 +90,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title="RegDelta API",
-        version="0.1.0",
+        version="0.2.0",
         summary="Regulatory change-impact engine for SEBI circulars",
         lifespan=lifespan,
     )
@@ -72,11 +98,12 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type", "Last-Event-ID"],
     )
 
     app.add_exception_handler(ApiError, api_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, unhandled_error_handler)
 
     for module in (health, circulars, search, assessments, policy, evaluation):

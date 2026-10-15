@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
@@ -14,8 +14,9 @@ router = APIRouter(tags=["evaluation"])
 
 @router.get("/eval/runs", response_model=list[EvalRunOut])
 async def list_runs(
-    limit: int = 50, session: AsyncSession = Depends(get_session)
+    limit: int = Query(50, ge=1, le=200), session: AsyncSession = Depends(get_session)
 ) -> list[EvalRunOut]:
+
     repo = EvaluationRepository(session)
     runs = await repo.list_runs(limit=limit)
     out: list[EvalRunOut] = []
@@ -28,6 +29,8 @@ async def list_runs(
                 mode=run.mode.value if run.mode else None,
                 git_sha=run.git_sha,
                 dataset=run.dataset,
+                config=run.config,
+                notes=run.notes,
                 started_at=run.started_at,
                 finished_at=run.finished_at,
                 results=[
@@ -36,6 +39,7 @@ async def list_runs(
                         metric_value=r.metric_value,
                         subset=r.subset,
                         k=r.k,
+                        detail=r.detail,
                     )
                     for r in results
                 ],

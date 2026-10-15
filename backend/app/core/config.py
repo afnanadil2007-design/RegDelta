@@ -1,8 +1,10 @@
 """Application configuration.
 
-Every environment variable is declared and validated here. A missing or
-malformed required value raises at import/startup time with a message naming
-the offending variable, so the process fails fast rather than deep in a request.
+Every environment variable is declared and validated here; a malformed value
+fails at startup with a message naming it. A *missing provider key* is not a
+startup error: browsing, search, and point-in-time queries need no key, so the
+app starts and reports the assessment provider as unavailable instead (see
+``provider_readiness``).
 """
 
 from __future__ import annotations
@@ -11,10 +13,16 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import ValidationError, model_validator
+from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-Provider = Literal["anthropic", "groq"]
+# "deterministic" is a rule-based stand-in behind the same gateway interface:
+# no network, no key, no cost, same output for the same input. It exists for
+# the synthetic demo and the test suite, and is labelled as such in the UI.
+Provider = Literal["deterministic", "groq", "anthropic"]
+
+# Recorded as the run's model when the deterministic provider is selected.
+DETERMINISTIC_MODEL = "regdelta-rules-v1"
 
 # There is one .env, at the repo root. Commands run from either the root or
 # backend/ (`make migrate` does `cd backend`), so both locations are searched.
@@ -34,7 +42,9 @@ class Settings(BaseSettings):
     # --- Application ---
     env: Literal["development", "production"] = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
-    api_host: str = "0.0.0.0"
+    # Loopback by default: the API has no authentication and can spend money on
+    # model calls, so it is a local tool. The container sets 0.0.0.0 itself.
+    api_host: str = "127.0.0.1"
     api_port: int = 8000
     cors_origins: str = "http://localhost:5173"
 
@@ -58,52 +68,49 @@ class Settings(BaseSettings):
     # --- Retrieval pipeline ---
     # Load the embedding + reranker models once at API startup (in the
     # background) rather than lazily inside the first search/assessment, where
-    # the multi-second CPU load would look like a frozen request. Disabled in
-    # tests so the suite does not pay the load.
+    # the multi-second CPU load would look like a frozen request.
     warm_models_on_startup: bool = True
-    rrf_k: int = 60
-    retrieve_top_n: int = 50
-    rerank_top_k: int = 8
-    relevance_threshold: float = 0.35
+    rrf_k: int = Field(60, ge=1)
+    retrieve_top_n: int = Field(50, ge=1, le=500)
+    rerank_top_k: int = Field(8, ge=1, le=100)
+    # Applied to the cross-encoder's sigmoid output. Not a calibrated
+    # probability: it was chosen on the synthetic corpus (docs/evaluation.md).
+    relevance_threshold: float = Field(0.35, ge=0.0, le=1.0)
 
     # --- LLM gateway ---
-    # Groq is the default so a fresh clone reaches a working assessment on the
-    # provider's free tier; Anthropic stays available by setting LLM_PROVIDER.
-    # The model strings must match the selected provider — the defaults below
-    # are Groq model ids; an Anthropic run overrides LLM_MODEL/VISION_MODEL.
-    llm_provider: Provider = "groq"
+    llm_provider: Provider = "deterministic"
+    # Model ids must match the selected provider; the defaults are Groq's.
     llm_model: str = "openai/gpt-oss-20b"
-    # Vision is the ingestion fallback for low-quality PDF pages. The default is
-    # a Groq multimodal model; Anthropic runs override it (e.g. claude-opus-5).
     vision_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
     # "low" keeps reasoning-token use small so the structured JSON verdict fits
-    # inside llm_max_tokens (and the free-tier budget); raise it if you give the
-    # model a larger token cap.
+    # inside llm_max_tokens (and the free-tier budget).
     llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
-    # Caps reasoning + response tokens per call. Providers reserve this whole
-    # amount against rate limits, so it is kept small: a structured verdict needs
-    # only a few hundred tokens, and Groq's free tier allows just 8000 tokens/min
-    # — a large cap here would blow that budget on the first concurrent call.
-    # Anthropic users with a higher budget can raise it in .env.
-    llm_max_tokens: int = 1024
-    llm_max_retries: int = 3
-    # Per-request HTTP timeout for provider calls. Generous because concurrent
-    # CPU reranking can delay the connection handshake.
-    llm_request_timeout_seconds: float = 120.0
-    anthropic_api_key: str | None = None
-    groq_api_key: str | None = None
+    # Caps reasoning + response tokens per call. Providers reserve this amount
+    # against rate limits; Groq's free tier allows ~8000 tokens/minute.
+    llm_max_tokens: int = Field(1024, ge=16)
+    # Total attempts per call, including the first, on transient errors.
+    llm_max_retries: int = Field(3, ge=1, le=10)
+    llm_request_timeout_seconds: float = Field(120.0, gt=0)
+    # Concurrent provider calls per process. The graph fans out per obligation;
+    # this keeps a free-tier rate limit from turning into a wall of retries.
+    llm_max_concurrency: int = Field(2, ge=1, le=32)
+    anthropic_api_key: SecretStr | None = None
+    groq_api_key: SecretStr | None = None
     # OpenAI-compatible endpoint; overridable only for testing against a proxy.
     groq_base_url: str = "https://api.groq.com/openai/v1"
 
-    # --- Agent hard limits ---
-    max_verification_retries: int = 2
-    max_assessment_tokens: int = 200_000
-    assessment_timeout_seconds: int = 600
+    # --- Agent hard limits (per assessment) ---
+    max_verification_retries: int = Field(2, ge=0, le=5)
+    max_assessment_tokens: int = Field(200_000, ge=1)
+    # Provider calls one assessment may make. Checked before every call, so a
+    # large circular cannot fan out into an unbounded bill.
+    max_assessment_calls: int = Field(300, ge=1)
+    assessment_timeout_seconds: int = Field(600, ge=1)
 
     # --- Ingestion ---
-    scrape_delay_seconds: float = 2.0
-    text_quality_threshold: float = 0.15
-    vision_dpi: int = 200
+    scrape_delay_seconds: float = Field(2.0, ge=0)
+    text_quality_threshold: float = Field(0.15, ge=0.0, le=1.0)
+    vision_dpi: int = Field(200, ge=50, le=600)
 
     @property
     def sqlalchemy_url(self) -> str:
@@ -119,25 +126,28 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
-    @model_validator(mode="after")
-    def _require_key_for_selected_provider(self) -> Settings:
-        """The gateway needs credentials only for the *selected* provider.
+    @property
+    def effective_model(self) -> str:
+        """The model recorded on runs produced with the current settings."""
+        if self.llm_provider == "deterministic":
+            return DETERMINISTIC_MODEL
+        return self.llm_model
 
-        We validate conditionally so a Groq run does not demand an Anthropic key
-        (or vice versa). The message names the exact variable.
-        """
-        required: dict[Provider, list[str]] = {
-            "anthropic": ["anthropic_api_key"],
-            "groq": ["groq_api_key"],
+    def provider_readiness(self) -> tuple[bool, str | None]:
+        """Whether assessments can run, and if not, a reason naming the fix."""
+        key_for: dict[Provider, tuple[str, SecretStr | None]] = {
+            "groq": ("GROQ_API_KEY", self.groq_api_key),
+            "anthropic": ("ANTHROPIC_API_KEY", self.anthropic_api_key),
         }
-        missing = [name for name in required[self.llm_provider] if not getattr(self, name)]
-        if missing:
-            names = ", ".join(m.upper() for m in missing)
-            raise ValueError(
-                f"LLM_PROVIDER={self.llm_provider!r} requires {names} to be set. "
-                f"Set it in .env (see .env.example)."
+        if self.llm_provider == "deterministic":
+            return True, None
+        variable, key = key_for[self.llm_provider]
+        if key is None or not key.get_secret_value().strip():
+            return False, (
+                f"LLM_PROVIDER={self.llm_provider} needs {variable}, which is not set. "
+                "Set it in .env, or use LLM_PROVIDER=deterministic for the offline demo."
             )
-        return self
+        return True, None
 
 
 @lru_cache

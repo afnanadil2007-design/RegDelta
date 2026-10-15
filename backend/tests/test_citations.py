@@ -228,3 +228,24 @@ async def test_unresolved_references_are_kept_not_discarded(session, tmp_path) -
     assert dangling, "the unresolvable reference must still be recorded"
     assert dangling[0].raw_reference == missing
     assert dangling[0].cited_circular_id is None
+
+
+@pytest.mark.asyncio
+async def test_rebuilding_the_graph_does_not_duplicate_edges(session, corpus) -> None:
+    """`make graph` is re-runnable: a rebuild replaces edges, it never appends."""
+    from sqlalchemy import func, select
+
+    from app.db.models.corpus import Citation, Supersession
+
+    async def counts() -> tuple[int, int]:
+        citations = (await session.execute(select(func.count(Citation.id)))).scalar_one()
+        edges = (await session.execute(select(func.count(Supersession.id)))).scalar_one()
+        return citations, edges
+
+    seeded = await counts()
+    assert seeded[0] > 0 and seeded[1] > 0
+    first = await build_graph(session)
+    assert await counts() == seeded
+    second = await build_graph(session)
+    assert await counts() == seeded
+    assert first.citations_found == second.citations_found

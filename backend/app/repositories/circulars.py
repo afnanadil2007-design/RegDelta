@@ -7,8 +7,9 @@ own statement construction and are the only place raw SQL may appear.
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,19 +45,50 @@ class CircularRepository:
         *,
         limit: int = 50,
         offset: int = 0,
+        query: str | None = None,
         department: str | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> list[Circular]:
-        stmt = select(Circular).order_by(Circular.issue_date.desc().nullslast(), Circular.id.desc())
+        stmt = self._filtered(select(Circular), query, department, date_from, date_to)
+        stmt = stmt.order_by(Circular.issue_date.desc().nullslast(), Circular.id.desc())
+        return list((await self.session.execute(stmt.limit(limit).offset(offset))).scalars())
+
+    async def count_matching(
+        self,
+        *,
+        query: str | None = None,
+        department: str | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> int:
+        stmt = self._filtered(
+            select(func.count(Circular.id)), query, department, date_from, date_to
+        )
+        return int((await self.session.execute(stmt)).scalar_one())
+
+    @staticmethod
+    def _filtered(
+        stmt: Select[Any],
+        query: str | None,
+        department: str | None,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> Select[Any]:
+        """Metadata filters for the circular list. ``query`` matches number or title."""
+        if query:
+            pattern = f"%{_escape_like(query.strip())}%"
+            stmt = stmt.where(
+                Circular.circular_number.ilike(pattern, escape="\\")
+                | Circular.title.ilike(pattern, escape="\\")
+            )
         if department:
             stmt = stmt.where(Circular.department == department)
         if date_from:
             stmt = stmt.where(Circular.issue_date >= date_from)
         if date_to:
             stmt = stmt.where(Circular.issue_date <= date_to)
-        stmt = stmt.limit(limit).offset(offset)
-        return list((await self.session.execute(stmt)).scalars())
+        return stmt
 
     async def count(self) -> int:
         return int((await self.session.execute(select(func.count(Circular.id)))).scalar_one())
@@ -80,6 +112,15 @@ class CircularRepository:
         ).where(Circular.id.in_(ids))
         rows = (await self.session.execute(stmt)).all()
         return {int(r[0]): (r[1], r[2], r[3]) for r in rows}
+
+    async def schema_revision(self) -> str | None:
+        """The Alembic revision the database is at, or None if unmigrated."""
+        try:
+            row = await self.session.execute(text("SELECT version_num FROM alembic_version"))
+        except SQLAlchemyError:
+            await self.session.rollback()
+            return None
+        return row.scalar_one_or_none()
 
     async def ping(self) -> bool:
         """Cheapest possible round-trip, for the health endpoint."""
@@ -149,3 +190,8 @@ class ChunkRepository:
 
     async def count(self) -> int:
         return int((await self.session.execute(select(func.count(Chunk.id)))).scalar_one())
+
+
+def _escape_like(text: str) -> str:
+    """Make user text literal inside a LIKE pattern."""
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

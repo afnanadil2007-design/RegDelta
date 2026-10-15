@@ -24,6 +24,22 @@ class PolicyRepository:
         stmt = select(PolicyPack).where(PolicyPack.name == name, PolicyPack.version == version)
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
+    async def get_many_packs(self, pack_ids: list[int]) -> dict[int, PolicyPack]:
+        if not pack_ids:
+            return {}
+        stmt = select(PolicyPack).where(PolicyPack.id.in_(pack_ids))
+        return {p.id: p for p in (await self.session.execute(stmt)).scalars()}
+
+    async def clause_counts(self, pack_ids: list[int]) -> dict[int, int]:
+        if not pack_ids:
+            return {}
+        stmt = (
+            select(PolicyClause.policy_pack_id, func.count(PolicyClause.id))
+            .where(PolicyClause.policy_pack_id.in_(pack_ids))
+            .group_by(PolicyClause.policy_pack_id)
+        )
+        return {int(pid): int(n) for pid, n in (await self.session.execute(stmt)).all()}
+
     async def list_packs(self) -> list[PolicyPack]:
         stmt = select(PolicyPack).order_by(PolicyPack.name, PolicyPack.version)
         return list((await self.session.execute(stmt)).scalars())

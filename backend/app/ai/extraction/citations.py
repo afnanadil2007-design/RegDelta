@@ -72,8 +72,18 @@ _SUPERSESSION_CUES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bpartially\s+modified\b", re.I), "partial"),
     (re.compile(r"\bstands?\s+modified\b", re.I), "amends"),
     (re.compile(r"\bamend(?:ed|ment\s+to)\b", re.I), "amends"),
-    # Master circulars list what they replace in an annexure.
-    (re.compile(r"\bAnnex(?:ure)?[\s\-–]*1\b", re.I), "supersedes"),
+    # Master circulars list what they replace in an annexure. The annexure
+    # mention alone is not a cue ("the format at Annexure 1 shall be used"
+    # cites without superseding); it must sit next to replacement language.
+    (
+        re.compile(
+            r"\blisted\s+(?:at|in)\s+Annex(?:ure)?[\s\-–]*1\b[^.]{0,80}?"
+            r"\b(?:are|is|stand|stands|shall\s+stand)\s+"
+            r"(?:replaced|rescinded|superseded|withdrawn)\b",
+            re.I,
+        ),
+        "supersedes",
+    ),
 ]
 
 _DATE_FORMATS = (

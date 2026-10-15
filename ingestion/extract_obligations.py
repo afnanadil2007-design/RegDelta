@@ -22,10 +22,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import re
 import sys
 
 from app.ai.extraction.obligations import extract_from_paragraph
+from app.ai.extraction.rules import EXTRACTOR_NAME, extract_obligations_by_rule
 from app.ai.gateway import LLMGateway
 from app.core.config import get_settings
 from app.core.logging import bind_run_id, configure_logging, get_logger
@@ -36,40 +36,21 @@ from app.repositories.obligations import ObligationRepository
 
 log = get_logger("ingestion.extract_obligations")
 
-# "<Actor> shall|must|may|should <action>" inside a numbered paragraph.
-_RULE = re.compile(
-    r"(?P<actor>(?:[A-Z][\w'\-]*\s+){0,4}?[A-Za-z][\w'\-]*)\s+"
-    r"(?P<modality>shall|must|may|should)\s+"
-    r"(?P<action>[^.]{10,400}\.)",
-)
-# Sentences that are structurally obligations but carry no requirement.
-_EXCLUDE = re.compile(
-    r"(issued in exercise of powers|stand superseded|shall stand modified|"
-    r"shall be read together|continue to apply|shall come into force)",
-    re.I,
-)
 
-
-def rule_extract(text: str, base_offset: int) -> list[dict]:
-    """Regex fallback. Returns dicts shaped like the LLM path's output."""
-    out: list[dict] = []
-    for match in _RULE.finditer(text):
-        span_text = match.group(0).strip()
-        if _EXCLUDE.search(span_text) or len(span_text) < 25:
-            continue
-        start = base_offset + match.start()
-        out.append(
-            {
-                "text": span_text,
-                "actor": match.group("actor").strip(),
-                "action": match.group("action").strip().rstrip("."),
-                "modality": match.group("modality").lower(),
-                "confidence": 0.55,  # a regex is a weak signal; say so
-                "char_start": start,
-                "char_end": start + len(span_text),
-            }
-        )
-    return out
+def _rule_items(text: str, base_offset: int) -> list[dict]:
+    """Rules-mode obligations, shaped like the LLM path's output."""
+    return [
+        {
+            "text": item.text,
+            "actor": item.actor,
+            "action": item.action,
+            "modality": item.modality,
+            "confidence": None,  # a regex has no confidence to report
+            "char_start": base_offset + item.char_start,
+            "char_end": base_offset + item.char_end,
+        }
+        for item in extract_obligations_by_rule(text)
+    ]
 
 
 async def run(mode: str, limit: int | None) -> int:
@@ -77,6 +58,7 @@ async def run(mode: str, limit: int | None) -> int:
     configure_logging(settings.log_level)
     bind_run_id(f"obligations-{mode}")
     gateway = LLMGateway(settings) if mode == "llm" else None
+    extractor = EXTRACTOR_NAME if gateway is None else f"{gateway.provider}:{gateway.model}"
 
     total = 0
     failures = 0
@@ -95,8 +77,8 @@ async def run(mode: str, limit: int | None) -> int:
             seen: set[tuple[int, int]] = set()
 
             for paragraph in paragraphs:
-                if mode == "rules":
-                    items = rule_extract(paragraph.text, paragraph.char_start)
+                if gateway is None:
+                    items = _rule_items(paragraph.text, paragraph.char_start)
                 else:
                     outcome = extract_from_paragraph(gateway, paragraph.text, paragraph.char_start)
                     failures += int(outcome.failed)
@@ -130,6 +112,7 @@ async def run(mode: str, limit: int | None) -> int:
                             char_start=item["char_start"],
                             char_end=item["char_end"],
                             confidence=item["confidence"],
+                            extractor=extractor,
                         )
                     )
 

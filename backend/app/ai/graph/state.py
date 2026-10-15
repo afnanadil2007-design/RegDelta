@@ -1,12 +1,10 @@
 """Graph state.
 
-``findings`` is ``Annotated[list, operator.add]`` because the worker fan-out
-writes that key *concurrently*: every ``assess_obligation`` branch returns its
-own findings, and LangGraph needs a reducer to merge them. Without the
-annotation the last writer would silently win and every other obligation's
-finding would vanish.
-
-Token and cost counters use the same reducer for the same reason.
+``findings`` and ``failed_tasks`` carry ``operator.add`` reducers because the
+worker fan-out writes them *concurrently*: every ``assess_obligation`` branch
+returns its own values, and without a reducer the last writer would silently
+win. Token and cost accounting is not in the state at all; it lives in the
+shared ``CallBudget`` (see nodes.py), which is checked before every call.
 """
 
 from __future__ import annotations
@@ -22,24 +20,27 @@ from typing_extensions import TypedDict
 from app.db.models.enums import ImpactType
 
 
-class FindingDraft(TypedDict, total=False):
-    """A finding as it moves through the graph, before it is persisted."""
+class FindingDraft(TypedDict):
+    """A finding as it leaves a worker, ready to persist.
+
+    Offsets are in full-text coordinates (circular) and policy-pack source
+    coordinates (clause), the same space every other span uses.
+    """
 
     obligation_id: int
-    obligation_text: str
     policy_clause_id: int | None
     clause_number: str | None
     impact_type: str
     rationale: str
-    confidence: float
+    # The judge's self-reported score; None when no judgement was made.
+    confidence: float | None
     circular_span_start: int | None
     circular_span_end: int | None
     clause_span_start: int | None
     clause_span_end: int | None
-    verified: bool
+    quote_status: str
+    verification_note: str | None
     verification_attempts: int
-    # Populated when the finding was dropped; kept for the trace, not stored.
-    dropped_reason: str | None
 
 
 class ObligationTask(TypedDict):
@@ -67,20 +68,14 @@ class AssessmentState(TypedDict, total=False):
 
     # --- concurrent worker output: reducers required ---
     findings: Annotated[list[FindingDraft], operator.add]
-    tokens_used: Annotated[int, operator.add]
-    cost_usd: Annotated[float, operator.add]
+    failed_tasks: Annotated[int, operator.add]
 
     # --- synthesis ---
-    memo: str
-
-    # --- limits ---
-    capped: bool
-    cap_reason: str | None
+    memo: str | None
+    # Why the memo is missing when the run otherwise completed.
+    memo_note: str | None
 
 
 def impact_of(value: str) -> ImpactType:
-    """Coerce a validated string into the enum, defaulting to NO_MATCH."""
-    try:
-        return ImpactType(value)
-    except ValueError:
-        return ImpactType.NO_MATCH
+    """Coerce a validated string into the enum; raises on an unknown verdict."""
+    return ImpactType(value)

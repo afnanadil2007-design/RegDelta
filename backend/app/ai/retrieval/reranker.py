@@ -5,8 +5,10 @@ relevance that a bi-encoder's independent embeddings cannot. It is far too
 slow to run over the corpus, which is why it only ever sees the fused top-N.
 
 ``CrossEncoder.predict`` already applies the model's own activation — for this
-single-label model that is a sigmoid — so it returns calibrated 0..1 relevance
-probabilities. ``RELEVANCE_THRESHOLD`` is expressed on that scale directly.
+single-label model (sentence-transformers 3.x) that is a sigmoid — so scores
+land in (0, 1) and ``RELEVANCE_THRESHOLD`` is expressed on that scale. They
+are *not* calibrated probabilities: no calibration was measured, and the
+threshold was chosen on the synthetic corpus.
 
 Do not add a second sigmoid here. Doing so is monotonic, so ranking (and every
 ablation number) looks unaffected, but it compresses the whole range into
@@ -74,8 +76,8 @@ def get_reranker() -> CrossEncoder:
 def rerank(query: str, passages: list[tuple[int, str]]) -> list[tuple[int, float]]:
     """Score (chunk_id, text) pairs against the query, best first.
 
-    Returns (chunk_id, score) where score is the model's own 0..1 relevance
-    probability, directly comparable to ``RELEVANCE_THRESHOLD``.
+    Returns (chunk_id, score) where score is the model's sigmoid output in
+    (0, 1), on the same scale as ``RELEVANCE_THRESHOLD``.
     """
     if not passages:
         return []

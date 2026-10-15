@@ -41,16 +41,59 @@ class AgentRunRepository:
         )
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
+    async def latest_for_assessments(self, assessment_ids: list[int]) -> dict[int, AgentRun]:
+        """The most recent agent run of each assessment."""
+        if not assessment_ids:
+            return {}
+        stmt = (
+            select(AgentRun)
+            .where(AgentRun.assessment_id.in_(assessment_ids))
+            .order_by(AgentRun.assessment_id, AgentRun.started_at.desc(), AgentRun.id.desc())
+            .distinct(AgentRun.assessment_id)
+        )
+        return {run.assessment_id: run for run in (await self.session.execute(stmt)).scalars()}
+
+    async def set_status(self, run_pk: int, status: AssessmentStatus) -> None:
+        run = await self.session.get(AgentRun, run_pk)
+        if run is not None:
+            run.status = status
+            await self.session.flush()
+
     async def finish(
-        self, run_pk: int, status: AssessmentStatus, *, error: str | None = None
+        self,
+        run_pk: int,
+        status: AssessmentStatus,
+        *,
+        error: str | None = None,
+        tokens: int = 0,
+        cost_usd: float = 0.0,
     ) -> None:
         run = await self.session.get(AgentRun, run_pk)
         if run is None:
             return
         run.status = status
         run.error = error
+        run.total_tokens = tokens
+        run.total_cost_usd = cost_usd
         run.finished_at = datetime.now(UTC)
         await self.session.flush()
+
+    async def fail_unfinished(self, reason: str) -> list[int]:
+        """Mark PENDING/RUNNING runs FAILED and their open steps ERROR."""
+        stmt = (
+            update(AgentRun)
+            .where(AgentRun.status.in_((AssessmentStatus.PENDING, AssessmentStatus.RUNNING)))
+            .values(status=AssessmentStatus.FAILED, error=reason, finished_at=func.now())
+            .returning(AgentRun.id)
+        )
+        run_ids = [int(row) for row in (await self.session.execute(stmt)).scalars()]
+        if run_ids:
+            await self.session.execute(
+                update(AgentStep)
+                .where(AgentStep.agent_run_id.in_(run_ids), AgentStep.status == StepStatus.RUNNING)
+                .values(status=StepStatus.ERROR, error=reason, finished_at=func.now())
+            )
+        return run_ids
 
     # --- steps -------------------------------------------------------------
 
@@ -89,7 +132,7 @@ class AgentRunRepository:
         outputs: dict | None = None,
         tokens_in: int = 0,
         tokens_out: int = 0,
-        cost_usd: float = 0.0,
+        cost_usd: float | None = 0.0,
         latency_ms: int | None = None,
         error: str | None = None,
     ) -> AgentStep | None:

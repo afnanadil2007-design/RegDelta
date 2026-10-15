@@ -13,7 +13,6 @@ from typing import Any
 
 from sqlalchemy import (
     UUID,
-    Boolean,
     Date,
     DateTime,
     Float,
@@ -33,13 +32,10 @@ from app.db.models.enums import (
     AnalystDecision,
     AssessmentStatus,
     ImpactType,
+    QuoteStatus,
     StepStatus,
     db_enum,
 )
-
-# Version of the assessment graph topology. Recorded on every run so a trace
-# stays interpretable after the graph changes.
-DEFAULT_GRAPH_VERSION = "v1"
 
 
 class Assessment(Base):
@@ -63,7 +59,12 @@ class Assessment(Base):
     error_reason: Mapped[str | None] = mapped_column(Text)
     memo: Mapped[str | None] = mapped_column(Text)
     total_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    # Estimated list-price cost of the calls whose model has a known price.
     total_cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    # Calls whose model has no list price; when non-zero the cost is partial.
+    unpriced_calls: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Obligation tasks that failed outright (not counting quote failures).
+    failed_tasks: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -86,19 +87,26 @@ class Finding(Base):
     )
     impact_type: Mapped[ImpactType] = mapped_column(db_enum(ImpactType, "impact_type"), index=True)
     rationale: Mapped[str] = mapped_column(Text)
-    confidence: Mapped[float] = mapped_column(Float)
+    # The judge's self-reported 0–1 score: uncalibrated, and null when no
+    # judgement was made.
+    confidence: Mapped[float | None] = mapped_column(Float)
     # Offsets into Circular.full_text and into the policy pack source.
     circular_span_start: Mapped[int | None] = mapped_column(Integer)
     circular_span_end: Mapped[int | None] = mapped_column(Integer)
     clause_span_start: Mapped[int | None] = mapped_column(Integer)
     clause_span_end: Mapped[int | None] = mapped_column(Integer)
-    verified: Mapped[bool] = mapped_column(Boolean, index=True, default=False)
+    quote_status: Mapped[QuoteStatus] = mapped_column(
+        db_enum(QuoteStatus, "quote_status"), index=True
+    )
+    # Why the last verification attempt failed, when quote_status is FAILED.
+    verification_note: Mapped[str | None] = mapped_column(Text)
     verification_attempts: Mapped[int] = mapped_column(Integer, default=0)
     analyst_decision: Mapped[AnalystDecision] = mapped_column(
         db_enum(AnalystDecision, "analyst_decision"),
         index=True,
         default=AnalystDecision.PENDING,
     )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -110,7 +118,12 @@ class AgentRun(Base):
     assessment_id: Mapped[int] = mapped_column(
         ForeignKey("assessments.id", ondelete="CASCADE"), index=True
     )
-    graph_version: Mapped[str] = mapped_column(String(32), default=DEFAULT_GRAPH_VERSION)
+    # app.ai.graph.build.GRAPH_VERSION of the code that ran it.
+    graph_version: Mapped[str] = mapped_column(String(32))
+    # What produced the run's judgements, e.g. ("groq", "openai/gpt-oss-20b")
+    # or ("deterministic", "rules-v1"). Null for runs recorded before 0004.
+    provider: Mapped[str | None] = mapped_column(String(32))
+    model: Mapped[str | None] = mapped_column(String(128))
     status: Mapped[AssessmentStatus] = mapped_column(
         db_enum(AssessmentStatus, "assessment_status"), default=AssessmentStatus.PENDING
     )
@@ -145,7 +158,8 @@ class AgentStep(Base):
     outputs: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     tokens_in: Mapped[int] = mapped_column(Integer, default=0)
     tokens_out: Mapped[int] = mapped_column(Integer, default=0)
-    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    # Null when a call in this step used a model with no list price.
+    cost_usd: Mapped[float | None] = mapped_column(Float, default=0.0)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     error: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

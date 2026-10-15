@@ -42,6 +42,11 @@ class SupersessionType(StrEnum):
     PARTIAL = "partial"
 
 
+# The edge types that take the earlier circular out of force on their
+# effective date. An amendment leaves the amended circular in force.
+REMOVES_FROM_FORCE = frozenset({SupersessionType.SUPERSEDES, SupersessionType.RESCINDS})
+
+
 class ImpactType(StrEnum):
     """The judged effect of one obligation on one policy clause."""
 
@@ -77,6 +82,22 @@ class StepStatus(StrEnum):
     RUNNING = "RUNNING"
     OK = "OK"
     ERROR = "ERROR"
+
+
+class QuoteStatus(StrEnum):
+    """Whether a finding's quoted evidence was located in its source text.
+
+    This checks that the quotes exist verbatim; it says nothing about whether
+    the judged impact or the rationale is correct.
+    """
+
+    VERIFIED = "VERIFIED"
+    # A quote could not be located within the retry budget. Kept, and shown as
+    # an unverified machine interpretation, rather than silently dropped.
+    FAILED = "FAILED"
+    # Nothing to verify: no model judgement was made (retrieval found no
+    # candidate clause for the obligation).
+    NOT_APPLICABLE = "NOT_APPLICABLE"
 
 
 class AnalystDecision(StrEnum):
