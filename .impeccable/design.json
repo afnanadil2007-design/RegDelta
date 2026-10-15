@@ -461,9 +461,14 @@
     ],
     "motion": [
       {
+        "name": "travel",
+        "value": "180ms cubic-bezier(0.16, 1, 0.3, 1); transform from the previous line's offset to none (FLIP via Element.animate)",
+        "purpose": "The shoulder arrow and tick travelling to the newly selected mark; skipped under reduced motion."
+      },
+      {
         "name": "settle",
         "value": "180ms cubic-bezier(0.16, 1, 0.3, 1); from translateY(-6px) scale(0.9), opacity 0.4",
-        "purpose": "The decision tick settling into the shoulder; the only authored motion."
+        "purpose": "The decision tick settling into the shoulder; the arrow's travel to the next mark uses the same duration and curve."
       },
       {
         "name": "state-colour",
@@ -578,7 +583,7 @@
       "A shoulder (2.25rem) of paragraph and clause numbers. The arrow and tick sit at the first line of the evidence mark.",
       "Colour appears only in plates, impact tags and notices, and always with a word.",
       "Quote status, machine interpretation and analyst decision are shown as three separate states, each with words and an icon.",
-      "One authored motion: the decision tick settling in."
+      "Two authored motions, both 180ms `cubic-bezier(0.16, 1, 0.3, 1)`: the shoulder arrow and tick travelling to the next quoted line, and the decision tick settling in."
     ],
     "rules": [
       {
@@ -629,7 +634,7 @@
       "**Don't** round leaves, plates, tags or notices.",
       "**Don't** set any text below 12px, or use small caps anywhere except guide words.",
       "**Don't** position the shoulder arrow or tick by measuring layout, and don't animate the arrow.",
-      "**Don't** add entrance animations. The tick's settle-in is the only authored motion.",
+      "**Don't** add entrance animations. The arrow's travel and the tick's settle-in are the only authored motions.",
       "**Don't** show a model score as a percentage or a confidence badge, or show an unknown value as zero.",
       "**Don't** ship a dark theme unless every state, contrast pair and chart has been verified in it."
     ]

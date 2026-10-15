@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react";
+import { useId, useMemo, useRef } from "react";
 
 import { MarkPointer } from "@/components/assessment/MarkPointer";
 import { GuideHead, SyntheticTag } from "@/components/lexicon";
@@ -32,6 +32,8 @@ export function ClauseLeaf({
   children?: React.ReactNode;
 }) {
   const headId = useId();
+  // Where this leaf's arrow last rested, so it can travel to the next mark.
+  const travel = useRef<number | null>(null);
   const span = clauseSpan(finding);
 
   const view = useMemo(() => {
@@ -92,7 +94,11 @@ export function ClauseLeaf({
                   <div className={cn("doc-text pb-3", !isCited && "text-ink-soft")}>
                     <Prose
                       blocks={toBlocks(segments)}
-                      pointer={local ? <MarkPointer decision={finding.analyst_decision} /> : undefined}
+                      pointer={
+                        local ? (
+                          <MarkPointer decision={finding.analyst_decision} travel={travel} />
+                        ) : undefined
+                      }
                     />
                     {isCited && !span ? (
                       <p className="mt-1 font-sans text-sm text-ink-soft">

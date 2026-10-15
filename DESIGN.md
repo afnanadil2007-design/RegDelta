@@ -210,7 +210,7 @@ drawer.
 - A shoulder (2.25rem) of paragraph and clause numbers. The arrow and tick sit at the first line of the evidence mark.
 - Colour appears only in plates, impact tags and notices, and always with a word.
 - Quote status, machine interpretation and analyst decision are shown as three separate states, each with words and an icon.
-- One authored motion: the decision tick settling in.
+- Two authored motions, both 180ms `cubic-bezier(0.16, 1, 0.3, 1)`: the shoulder arrow and tick travelling to the next quoted line, and the decision tick settling in.
 
 ## Colors
 
@@ -384,7 +384,7 @@ vertical position of the line where the mark starts. CSS places them; nothing
 is measured.
 - **Arrow:** a solid ink triangle (10 × 12px). It sits at `left: calc(2.25rem + 5px)`, centred in the 20px gutter between the paragraph number and the text, and vertically centred on the line (`margin-top: calc(0.5lh - 6px)`).
 - **Tick:** an 18px circle-check (accepted) or circle-x (rejected), stroke 2.25, on a paper disc at the shoulder's left edge. Pending shows nothing. It is hidden from assistive technology because the decision bar states the decision in words.
-- **Motion:** the arrow does not travel and has no transition. On a new decision the tick plays `settle` (180ms, `cubic-bezier(0.16, 1, 0.3, 1)`, from `translateY(-6px) scale(0.9)` at 0.4 opacity). Under `prefers-reduced-motion: reduce`, every animation and transition drops to 0.01ms.
+- **Motion:** when the selected finding changes, the arrow and tick travel from the line they left to the new mark: a 180ms `cubic-bezier(0.16, 1, 0.3, 1)` transform (FLIP) that ends at the CSS position, so the resting place never depends on a measurement (MarkPointer.tsx). On a new decision the tick plays `settle` (180ms, same curve, from `translateY(-6px) scale(0.9)` at 0.4 opacity). Under `prefers-reduced-motion: reduce` the travel is skipped and every CSS animation and transition drops to 0.01ms.
 
 ### Evidence marks
 - **Quote:** highlight wash plus a 2px ink underline, with a 1px radius.
@@ -451,6 +451,6 @@ skip link comes first.
 - **Don't** round leaves, plates, tags or notices.
 - **Don't** set any text below 12px, or use small caps anywhere except guide words.
 - **Don't** position the shoulder arrow or tick by measuring layout, and don't animate the arrow.
-- **Don't** add entrance animations. The tick's settle-in is the only authored motion.
+- **Don't** add entrance animations. The arrow's travel and the tick's settle-in are the only authored motions.
 - **Don't** show a model score as a percentage or a confidence badge, or show an unknown value as zero.
 - **Don't** ship a dark theme unless every state, contrast pair and chart has been verified in it.

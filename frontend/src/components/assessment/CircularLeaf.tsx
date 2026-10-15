@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { MarkPointer } from "@/components/assessment/MarkPointer";
@@ -40,6 +40,8 @@ export function CircularLeaf({
   children?: React.ReactNode;
 }) {
   const headId = useId();
+  // Where this leaf's arrow last rested, so it can travel to the next mark.
+  const travel = useRef<number | null>(null);
   const [whole, setWhole] = useState(false);
   const span = useMemo(() => circularSpan(finding), [finding]);
 
@@ -114,7 +116,11 @@ export function CircularLeaf({
                         stripPrefix: numberPrefix(paragraph),
                         keepLines: !paragraph.para_number && !paragraph.heading_path,
                       })}
-                      pointer={first ? <MarkPointer decision={finding.analyst_decision} /> : undefined}
+                      pointer={
+                        first ? (
+                          <MarkPointer decision={finding.analyst_decision} travel={travel} />
+                        ) : undefined
+                      }
                     />
                   )}
                 </div>
