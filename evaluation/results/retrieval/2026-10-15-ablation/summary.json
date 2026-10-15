@@ -1,0 +1,1393 @@
+{
+  "modes": {
+    "dense": {
+      "n_in_scope": 120,
+      "n_out_of_scope": 15,
+      "n_controls": 15,
+      "metrics": [
+        {
+          "name": "recall@1",
+          "value": 0.03333333333333333,
+          "n": 120,
+          "subset": "all",
+          "k": 1,
+          "ci": [
+            0.00819672131147541,
+            0.06779661016949153
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@5",
+          "value": 0.10833333333333334,
+          "n": 120,
+          "subset": "all",
+          "k": 5,
+          "ci": [
+            0.05737704918032787,
+            0.16923076923076924
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@10",
+          "value": 0.25,
+          "n": 120,
+          "subset": "all",
+          "k": 10,
+          "ci": [
+            0.1694915254237288,
+            0.3412698412698413
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "mrr@10",
+          "value": 0.07431878306878306,
+          "n": 120,
+          "subset": "all",
+          "k": 10,
+          "ci": [
+            0.04383960573476702,
+            0.11128675513921416
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@1",
+          "value": 0.016666666666666666,
+          "n": 60,
+          "subset": "semantic",
+          "k": 1,
+          "ci": [
+            0.0,
+            0.05172413793103448
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@5",
+          "value": 0.11666666666666667,
+          "n": 60,
+          "subset": "semantic",
+          "k": 5,
+          "ci": [
+            0.047619047619047616,
+            0.20689655172413793
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@10",
+          "value": 0.18333333333333332,
+          "n": 60,
+          "subset": "semantic",
+          "k": 10,
+          "ci": [
+            0.09375,
+            0.288135593220339
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "mrr@10",
+          "value": 0.05076058201058201,
+          "n": 60,
+          "subset": "semantic",
+          "k": 10,
+          "ci": [
+            0.019398907103825136,
+            0.09418423106947697
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@1",
+          "value": 0.05,
+          "n": 60,
+          "subset": "identifier",
+          "k": 1,
+          "ci": [
+            0.0,
+            0.11475409836065574
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@5",
+          "value": 0.1,
+          "n": 60,
+          "subset": "identifier",
+          "k": 5,
+          "ci": [
+            0.03333333333333333,
+            0.18032786885245902
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@10",
+          "value": 0.31666666666666665,
+          "n": 60,
+          "subset": "identifier",
+          "k": 10,
+          "ci": [
+            0.19298245614035087,
+            0.45
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "mrr@10",
+          "value": 0.09787698412698413,
+          "n": 60,
+          "subset": "identifier",
+          "k": 10,
+          "ci": [
+            0.04606374807987711,
+            0.16211001642036124
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "refusal_rate",
+          "value": 0.0,
+          "n": 120,
+          "subset": "in_scope",
+          "k": null,
+          "ci": null,
+          "note": "This mode has no refusal threshold: it always returns passages.",
+          "extra": {}
+        },
+        {
+          "name": "refusal_rate",
+          "value": 0.0,
+          "n": 15,
+          "subset": "out_of_scope",
+          "k": null,
+          "ci": null,
+          "note": "This mode has no refusal threshold: it always returns passages.",
+          "extra": {}
+        },
+        {
+          "name": "refusal_rate",
+          "value": 0.0,
+          "n": 15,
+          "subset": "control",
+          "k": null,
+          "ci": null,
+          "note": "This mode has no refusal threshold: it always returns passages.",
+          "extra": {}
+        },
+        {
+          "name": "latency_p50_ms",
+          "value": 47.525000000000006,
+          "n": 150,
+          "subset": "all",
+          "k": null,
+          "ci": null,
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "latency_p95_ms",
+          "value": 72.54650000000001,
+          "n": 150,
+          "subset": "all",
+          "k": null,
+          "ci": null,
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "latency_mean_ms",
+          "value": 51.486133333333335,
+          "n": 150,
+          "subset": "all",
+          "k": null,
+          "ci": null,
+          "note": null,
+          "extra": {}
+        }
+      ],
+      "error_examples": [
+        {
+          "query_id": "ident-000ea29778",
+          "subset": "identifier",
+          "relevant": [
+            "SEBI/HO/MIRSD/CIR/P/2023/242"
+          ],
+          "top3": [
+            "SEBI/HO/MIRSD/CIR/P/2023/218",
+            "SEBI/HO/ITD/ITD-PoD-2/P/CIR/2023/214",
+            "SEBI/HO/ITD/ITD-PoD-2/P/CIR/2024/262"
+          ]
+        },
+        {
+          "query_id": "ident-024b6dc439",
+          "subset": "identifier",
+          "relevant": [
+            "SEBI/HO/ISD/ISD-PoD-2/P/CIR/2019/16"
+          ],
+          "top3": [
+            "SEBI/HO/ITD/ITD-PoD-2/P/CIR/2024/286",
+            "SEBI/HO/ITD/ITD-PoD-2/P/CIR/2023/214",
+            "SEBI/HO/ITD/ITD-PoD-2/P/CIR/2023/238"
+          ]
+        },
+        {
+          "query_id": "ident-060074d422",
+          "subset": "identifier",
+          "relevant": [
+            "SEBI/HO/ITD/CIR/P/2019/38"
+          ],
+          "top3": [
+            "SEBI/HO/ITD/ITD-PoD-2/P/CIR/2024/286",
+            "SEBI/HO/ITD/ITD-PoD-2/P/CIR/2023/214",
+            "SEBI/HO/ITD/ITD-PoD-2/P/CIR/2022/166"
+          ]
+        },
+        {
+          "query_id": "ident-0c86d2c5ca",
+          "subset": "identifier",
+          "relevant": [
+            "SEBI/HO/CFD/CFD_Div2/P/CIR/2020/75"
+          ],
+          "top3": [
+            "SEBI/HO/ITD/ITD-PoD-2/P/CIR/2024/286",
+            "SEBI/HO/ITD/ITD-PoD-2/P/CIR/2023/214",
+            "SEBI/HO/ITD/CIR/P/2021/158"
+          ]
+        },
+        {
+          "query_id": "ident-0fca4bcf97",
+          "subset": "identifier",
+          "relevant": [
+            "SEBI/HO/MRD/CIR/P/2021/140"
+          ],
+          "top3": [
+            "SEBI/HO/MRD/MRD-PoD-2/P/CIR/2023/244",
+            "SEBI/HO/ITD/CIR/P/2021/158",
+            "SEBI/HO/ITD/CIR/P/2022/206"
+          ]
+        },
+        {
+          "query_id": "ident-139b839159",
+          "subset": "identifier",
+          "relevant": [
+            "SEBI/HO/IMD/CIR/P/2021/125"
+          ],
+          "top3": [
+            "SEBI/HO/ITD/CIR/P/2021/158",
+            "SEBI/HO/ITD/CIR/P/2022/206",
+            "SEBI/HO/ITD/CIR/P/2022/182"
+          ]
+        }
+      ]
+    },
+    "lexical": {
+      "n_in_scope": 120,
+      "n_out_of_scope": 15,
+      "n_controls": 15,
+      "metrics": [
+        {
+          "name": "recall@1",
+          "value": 0.225,
+          "n": 120,
+          "subset": "all",
+          "k": 1,
+          "ci": [
+            0.1532258064516129,
+            0.29365079365079366
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@5",
+          "value": 0.5416666666666666,
+          "n": 120,
+          "subset": "all",
+          "k": 5,
+          "ci": [
+            0.4745762711864407,
+            0.6101694915254238
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@10",
+          "value": 0.6583333333333333,
+          "n": 120,
+          "subset": "all",
+          "k": 10,
+          "ci": [
+            0.603448275862069,
+            0.7155172413793104
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "mrr@10",
+          "value": 0.35261243386243385,
+          "n": 120,
+          "subset": "all",
+          "k": 10,
+          "ci": [
+            0.29875512032770096,
+            0.4036527452511059
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@1",
+          "value": 0.016666666666666666,
+          "n": 60,
+          "subset": "semantic",
+          "k": 1,
+          "ci": [
+            0.0,
+            0.05172413793103448
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@5",
+          "value": 0.23333333333333334,
+          "n": 60,
+          "subset": "semantic",
+          "k": 5,
+          "ci": [
+            0.13333333333333333,
+            0.3492063492063492
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@10",
+          "value": 0.31666666666666665,
+          "n": 60,
+          "subset": "semantic",
+          "k": 10,
+          "ci": [
+            0.20689655172413793,
+            0.43103448275862066
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "mrr@10",
+          "value": 0.0975,
+          "n": 60,
+          "subset": "semantic",
+          "k": 10,
+          "ci": [
+            0.05536723163841808,
+            0.14722222222222223
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@1",
+          "value": 0.43333333333333335,
+          "n": 60,
+          "subset": "identifier",
+          "k": 1,
+          "ci": [
+            0.2982456140350877,
+            0.5645161290322581
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@5",
+          "value": 0.85,
+          "n": 60,
+          "subset": "identifier",
+          "k": 5,
+          "ci": [
+            0.75,
+            0.9344262295081968
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@10",
+          "value": 1.0,
+          "n": 60,
+          "subset": "identifier",
+          "k": 10,
+          "ci": [
+            1.0,
+            1.0
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "mrr@10",
+          "value": 0.6077248677248677,
+          "n": 60,
+          "subset": "identifier",
+          "k": 10,
+          "ci": [
+            0.5111111111111111,
+            0.6989721571688785
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "refusal_rate",
+          "value": 0.0,
+          "n": 120,
+          "subset": "in_scope",
+          "k": null,
+          "ci": null,
+          "note": "This mode has no refusal threshold: it always returns passages.",
+          "extra": {}
+        },
+        {
+          "name": "refusal_rate",
+          "value": 0.0,
+          "n": 15,
+          "subset": "out_of_scope",
+          "k": null,
+          "ci": null,
+          "note": "This mode has no refusal threshold: it always returns passages.",
+          "extra": {}
+        },
+        {
+          "name": "refusal_rate",
+          "value": 0.0,
+          "n": 15,
+          "subset": "control",
+          "k": null,
+          "ci": null,
+          "note": "This mode has no refusal threshold: it always returns passages.",
+          "extra": {}
+        },
+        {
+          "name": "latency_p50_ms",
+          "value": 4.74,
+          "n": 150,
+          "subset": "all",
+          "k": null,
+          "ci": null,
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "latency_p95_ms",
+          "value": 11.195000000000002,
+          "n": 150,
+          "subset": "all",
+          "k": null,
+          "ci": null,
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "latency_mean_ms",
+          "value": 5.314,
+          "n": 150,
+          "subset": "all",
+          "k": null,
+          "ci": null,
+          "note": null,
+          "extra": {}
+        }
+      ],
+      "error_examples": [
+        {
+          "query_id": "sem-024b6dc439",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/ISD/ISD-PoD-2/P/CIR/2019/16"
+          ],
+          "top3": [
+            "SEBI/HO/ISD/ISD_Div1/P/CIR/2020/72",
+            "SEBI/HO/ISD/ISD-PoD-2/P/CIR/2019/40",
+            "SEBI/HO/ISD/ISD_Div1/P/CIR/2020/96"
+          ]
+        },
+        {
+          "query_id": "sem-08fc998ebf",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/OIAE/CIR/P/2021/119"
+          ],
+          "top3": [
+            "SEBI/HO/OIAE/OIAE-PoD-2/P/CIR/2022/175",
+            "SEBI/HO/OIAE/CIR/P/2022/191",
+            "SEBI/HO/OIAE/OIAE-PoD-2/P/CIR/2023/223"
+          ]
+        },
+        {
+          "query_id": "sem-0c86d2c5ca",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/CFD/CFD_Div2/P/CIR/2020/75"
+          ],
+          "top3": [
+            "SEBI/HO/CFD/CIR/P/2021/131",
+            "SEBI/HO/CFD/CIR/P/2020/83",
+            "SEBI/HO/CFD/CFD-PoD-2/P/CIR/2021/115"
+          ]
+        },
+        {
+          "query_id": "sem-0fca4bcf97",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/MRD/CIR/P/2021/140"
+          ],
+          "top3": [
+            "SEBI/HO/MRD/MRD-PoD-2/P/CIR/2021/148",
+            "SEBI/HO/MRD/CIR/P/2022/164",
+            "SEBI/HO/MRD/MRD_Div1/P/CIR/2023/252"
+          ]
+        },
+        {
+          "query_id": "sem-139b839159",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/IMD/CIR/P/2021/125"
+          ],
+          "top3": [
+            "SEBI/HO/IMD/CIR/P/2023/221",
+            "SEBI/HO/IMD/IMD-PoD-2/P/CIR/2023/253",
+            "SEBI/HO/IMD/IMD-PoD-2/P/CIR/2022/181"
+          ]
+        },
+        {
+          "query_id": "sem-198a575802",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/DDHS/DDHS-PoD-2/P/CIR/2020/97"
+          ],
+          "top3": [
+            "SEBI/HO/DDHS/DDHS_Div2/P/CIR/2024/297",
+            "SEBI/HO/DDHS/DDHS-PoD-2/P/CIR/2022/169",
+            "SEBI/HO/DDHS/DDHS_Div2/P/CIR/2020/81"
+          ]
+        }
+      ]
+    },
+    "hybrid": {
+      "n_in_scope": 120,
+      "n_out_of_scope": 15,
+      "n_controls": 15,
+      "metrics": [
+        {
+          "name": "recall@1",
+          "value": 0.25833333333333336,
+          "n": 120,
+          "subset": "all",
+          "k": 1,
+          "ci": [
+            0.1896551724137931,
+            0.3333333333333333
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@5",
+          "value": 0.5833333333333334,
+          "n": 120,
+          "subset": "all",
+          "k": 5,
+          "ci": [
+            0.5169491525423728,
+            0.652542372881356
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@10",
+          "value": 0.65,
+          "n": 120,
+          "subset": "all",
+          "k": 10,
+          "ci": [
+            0.5887096774193549,
+            0.7083333333333334
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "mrr@10",
+          "value": 0.38819113756613755,
+          "n": 120,
+          "subset": "all",
+          "k": 10,
+          "ci": [
+            0.3330151888341544,
+            0.4464814814814815
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@1",
+          "value": 0.05,
+          "n": 60,
+          "subset": "semantic",
+          "k": 1,
+          "ci": [
+            0.0,
+            0.11666666666666667
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@5",
+          "value": 0.23333333333333334,
+          "n": 60,
+          "subset": "semantic",
+          "k": 5,
+          "ci": [
+            0.13333333333333333,
+            0.3442622950819672
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@10",
+          "value": 0.31666666666666665,
+          "n": 60,
+          "subset": "semantic",
+          "k": 10,
+          "ci": [
+            0.20689655172413793,
+            0.43103448275862066
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "mrr@10",
+          "value": 0.1188425925925926,
+          "n": 60,
+          "subset": "semantic",
+          "k": 10,
+          "ci": [
+            0.06578703703703703,
+            0.1870673952641166
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@1",
+          "value": 0.4666666666666667,
+          "n": 60,
+          "subset": "identifier",
+          "k": 1,
+          "ci": [
+            0.3389830508474576,
+            0.603448275862069
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@5",
+          "value": 0.9333333333333333,
+          "n": 60,
+          "subset": "identifier",
+          "k": 5,
+          "ci": [
+            0.864406779661017,
+            0.9841269841269841
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@10",
+          "value": 0.9833333333333333,
+          "n": 60,
+          "subset": "identifier",
+          "k": 10,
+          "ci": [
+            0.9482758620689655,
+            1.0
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "mrr@10",
+          "value": 0.6575396825396825,
+          "n": 60,
+          "subset": "identifier",
+          "k": 10,
+          "ci": [
+            0.5736481033091203,
+            0.745436507936508
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "refusal_rate",
+          "value": 0.0,
+          "n": 120,
+          "subset": "in_scope",
+          "k": null,
+          "ci": null,
+          "note": "This mode has no refusal threshold: it always returns passages.",
+          "extra": {}
+        },
+        {
+          "name": "refusal_rate",
+          "value": 0.0,
+          "n": 15,
+          "subset": "out_of_scope",
+          "k": null,
+          "ci": null,
+          "note": "This mode has no refusal threshold: it always returns passages.",
+          "extra": {}
+        },
+        {
+          "name": "refusal_rate",
+          "value": 0.0,
+          "n": 15,
+          "subset": "control",
+          "k": null,
+          "ci": null,
+          "note": "This mode has no refusal threshold: it always returns passages.",
+          "extra": {}
+        },
+        {
+          "name": "latency_p50_ms",
+          "value": 47.265,
+          "n": 150,
+          "subset": "all",
+          "k": null,
+          "ci": null,
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "latency_p95_ms",
+          "value": 58.36750000000003,
+          "n": 150,
+          "subset": "all",
+          "k": null,
+          "ci": null,
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "latency_mean_ms",
+          "value": 48.6248,
+          "n": 150,
+          "subset": "all",
+          "k": null,
+          "ci": null,
+          "note": null,
+          "extra": {}
+        }
+      ],
+      "error_examples": [
+        {
+          "query_id": "ident-f982a5a389",
+          "subset": "identifier",
+          "relevant": [
+            "SEBI/HO/MIRSD/MIRSD-PoD-2/P/CIR/2019/10"
+          ],
+          "top3": [
+            "SEBI/HO/MIRSD/MIRSD-PoD-2/P/CIR/2019/34",
+            "SEBI/HO/MIRSD/MIRSD_Div1/P/CIR/2019/18",
+            "SEBI/HO/MIRSD/MIRSD_Div1/P/CIR/2022/186"
+          ]
+        },
+        {
+          "query_id": "sem-024b6dc439",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/ISD/ISD-PoD-2/P/CIR/2019/16"
+          ],
+          "top3": [
+            "SEBI/HO/ISD/ISD_Div1/P/CIR/2020/72",
+            "SEBI/HO/ISD/ISD-PoD-2/P/CIR/2023/256",
+            "SEBI/HO/ISD/ISD_Div1/P/CIR/2020/96"
+          ]
+        },
+        {
+          "query_id": "sem-08fc998ebf",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/OIAE/CIR/P/2021/119"
+          ],
+          "top3": [
+            "SEBI/HO/OIAE/CIR/P/2022/191",
+            "SEBI/HO/OIAE/OIAE-PoD-2/P/CIR/2023/223",
+            "SEBI/HO/OIAE/OIAE-PoD-2/P/CIR/2022/175"
+          ]
+        },
+        {
+          "query_id": "sem-0c86d2c5ca",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/CFD/CFD_Div2/P/CIR/2020/75"
+          ],
+          "top3": [
+            "SEBI/HO/CFD/CIR/P/2021/131",
+            "SEBI/HO/CFD/CFD-PoD-2/P/CIR/2021/115",
+            "SEBI/HO/CFD/CIR/P/2020/83"
+          ]
+        },
+        {
+          "query_id": "sem-0fca4bcf97",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/MRD/CIR/P/2021/140"
+          ],
+          "top3": [
+            "SEBI/HO/MRD/CIR/P/2022/164",
+            "SEBI/HO/MRD/MRD_Div1/P/CIR/2021/156",
+            "SEBI/HO/MRD/MRD-PoD-2/P/CIR/2021/148"
+          ]
+        },
+        {
+          "query_id": "sem-139b839159",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/IMD/CIR/P/2021/125"
+          ],
+          "top3": [
+            "SEBI/HO/IMD/CIR/P/2023/221",
+            "SEBI/HO/IMD/IMD-PoD-2/P/CIR/2022/181",
+            "SEBI/HO/IMD/IMD-PoD-2/P/CIR/2021/133"
+          ]
+        }
+      ]
+    },
+    "hybrid_rerank": {
+      "n_in_scope": 120,
+      "n_out_of_scope": 15,
+      "n_controls": 15,
+      "metrics": [
+        {
+          "name": "recall@1",
+          "value": 0.4666666666666667,
+          "n": 120,
+          "subset": "all",
+          "k": 1,
+          "ci": [
+            0.4224137931034483,
+            0.5087719298245614
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@5",
+          "value": 0.6333333333333333,
+          "n": 120,
+          "subset": "all",
+          "k": 5,
+          "ci": [
+            0.5819672131147541,
+            0.6896551724137931
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@10",
+          "value": 0.7583333333333333,
+          "n": 120,
+          "subset": "all",
+          "k": 10,
+          "ci": [
+            0.7,
+            0.819672131147541
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "mrr@10",
+          "value": 0.5446957671957672,
+          "n": 120,
+          "subset": "all",
+          "k": 10,
+          "ci": [
+            0.5133994708994709,
+            0.5787332112332112
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@1",
+          "value": 0.03333333333333333,
+          "n": 60,
+          "subset": "semantic",
+          "k": 1,
+          "ci": [
+            0.0,
+            0.08620689655172414
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@5",
+          "value": 0.26666666666666666,
+          "n": 60,
+          "subset": "semantic",
+          "k": 5,
+          "ci": [
+            0.16393442622950818,
+            0.3793103448275862
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@10",
+          "value": 0.5166666666666667,
+          "n": 60,
+          "subset": "semantic",
+          "k": 10,
+          "ci": [
+            0.4,
+            0.639344262295082
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "mrr@10",
+          "value": 0.14216931216931217,
+          "n": 60,
+          "subset": "semantic",
+          "k": 10,
+          "ci": [
+            0.09419558783965563,
+            0.20080026455026456
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@1",
+          "value": 0.9,
+          "n": 60,
+          "subset": "identifier",
+          "k": 1,
+          "ci": [
+            0.8166666666666667,
+            0.9672131147540983
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@5",
+          "value": 1.0,
+          "n": 60,
+          "subset": "identifier",
+          "k": 5,
+          "ci": [
+            1.0,
+            1.0
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "recall@10",
+          "value": 1.0,
+          "n": 60,
+          "subset": "identifier",
+          "k": 10,
+          "ci": [
+            1.0,
+            1.0
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "mrr@10",
+          "value": 0.9472222222222222,
+          "n": 60,
+          "subset": "identifier",
+          "k": 10,
+          "ci": [
+            0.9022988505747126,
+            0.9833333333333333
+          ],
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "refusal_rate",
+          "value": 0.0,
+          "n": 120,
+          "subset": "in_scope",
+          "k": null,
+          "ci": [
+            0.0,
+            0.0
+          ],
+          "note": "Answerable queries the mode declined (false refusals).",
+          "extra": {}
+        },
+        {
+          "name": "refusal_rate",
+          "value": 1.0,
+          "n": 15,
+          "subset": "out_of_scope",
+          "k": null,
+          "ci": [
+            0.7961166964035129,
+            1.0
+          ],
+          "note": "Unanswerable queries the mode declined (correct refusals).",
+          "extra": {}
+        },
+        {
+          "name": "answered_recall@10",
+          "value": 0.7583333333333333,
+          "n": 120,
+          "subset": "in_scope",
+          "k": 10,
+          "ci": [
+            0.7,
+            0.819672131147541
+          ],
+          "note": "Recall@10 counting a refused query as a miss.",
+          "extra": {}
+        },
+        {
+          "name": "refusal_rate",
+          "value": 0.0,
+          "n": 15,
+          "subset": "control",
+          "k": null,
+          "ci": [
+            0.0,
+            0.20388330359648707
+          ],
+          "note": "Answerable questions without a relevance label that the mode declined (false refusals).",
+          "extra": {}
+        },
+        {
+          "name": "latency_p50_ms",
+          "value": 55517.945,
+          "n": 150,
+          "subset": "all",
+          "k": null,
+          "ci": null,
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "latency_p95_ms",
+          "value": 117275.05600000001,
+          "n": 150,
+          "subset": "all",
+          "k": null,
+          "ci": null,
+          "note": null,
+          "extra": {}
+        },
+        {
+          "name": "latency_mean_ms",
+          "value": 64886.75773333333,
+          "n": 150,
+          "subset": "all",
+          "k": null,
+          "ci": null,
+          "note": null,
+          "extra": {}
+        }
+      ],
+      "error_examples": [
+        {
+          "query_id": "sem-08fc998ebf",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/OIAE/CIR/P/2021/119"
+          ],
+          "top3": [
+            "SEBI/HO/OIAE/CIR/P/2022/191",
+            "SEBI/HO/OIAE/OIAE-PoD-2/P/CIR/2022/175",
+            "SEBI/HO/OIAE/OIAE_Div2/P/CIR/2022/207"
+          ]
+        },
+        {
+          "query_id": "sem-0c86d2c5ca",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/CFD/CFD_Div2/P/CIR/2020/75"
+          ],
+          "top3": [
+            "SEBI/HO/CFD/CIR/P/2021/131",
+            "SEBI/HO/CFD/CIR/P/2020/83",
+            "SEBI/HO/CFD/CFD-PoD-2/P/CIR/2020/67"
+          ]
+        },
+        {
+          "query_id": "sem-0fca4bcf97",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/MRD/CIR/P/2021/140"
+          ],
+          "top3": [
+            "SEBI/HO/MRD/MRD-PoD-2/P/CIR/2021/148",
+            "SEBI/HO/MRD/MRD_Div1/P/CIR/2023/252",
+            "SEBI/HO/MRD/MRD_Div1/P/CIR/2021/156"
+          ]
+        },
+        {
+          "query_id": "sem-198a575802",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/DDHS/DDHS-PoD-2/P/CIR/2020/97"
+          ],
+          "top3": [
+            "SEBI/HO/DDHS/DDHS_Div2/P/CIR/2024/297",
+            "SEBI/HO/DDHS/DDHS_Div2/P/CIR/2020/81",
+            "SEBI/HO/DDHS/DDHS-PoD-2/P/CIR/2022/169"
+          ]
+        },
+        {
+          "query_id": "sem-19bf795794",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/OIAE/OIAE_Div2/P/CIR/2020/63"
+          ],
+          "top3": [
+            "SEBI/HO/OIAE/CIR/P/2022/167",
+            "SEBI/HO/OIAE/OIAE_Div2/P/CIR/2023/231",
+            "SEBI/HO/OIAE/OIAE_Div2/P/CIR/2024/279"
+          ]
+        },
+        {
+          "query_id": "sem-1a985957e7",
+          "subset": "semantic",
+          "relevant": [
+            "SEBI/HO/MRD/CIR/P/2020/68"
+          ],
+          "top3": [
+            "SEBI/HO/MRD/CIR/P/2024/308",
+            "SEBI/HO/MRD/MRD-PoD-2/P/CIR/2021/124",
+            "SEBI/HO/MRD/MRD_Div1/P/CIR/2024/276"
+          ]
+        }
+      ]
+    }
+  },
+  "paired_differences": [
+    {
+      "a": "hybrid_rerank",
+      "b": "lexical",
+      "metric": "recall@10",
+      "difference": 0.1,
+      "ci": [
+        0.05084745762711865,
+        0.15517241379310345
+      ],
+      "n": 120
+    },
+    {
+      "a": "hybrid_rerank",
+      "b": "lexical",
+      "metric": "mrr@10",
+      "difference": 0.19208333333333333,
+      "ci": [
+        0.14577175697865352,
+        0.24153551251008878
+      ],
+      "n": 120
+    },
+    {
+      "a": "hybrid_rerank",
+      "b": "hybrid",
+      "metric": "recall@10",
+      "difference": 0.10833333333333334,
+      "ci": [
+        0.059322033898305086,
+        0.16393442622950818
+      ],
+      "n": 120
+    },
+    {
+      "a": "hybrid_rerank",
+      "b": "hybrid",
+      "metric": "mrr@10",
+      "difference": 0.15650462962962963,
+      "ci": [
+        0.10756404901141745,
+        0.20104497354497355
+      ],
+      "n": 120
+    },
+    {
+      "a": "hybrid",
+      "b": "lexical",
+      "metric": "recall@10",
+      "difference": -0.008333333333333333,
+      "ci": [
+        -0.02586206896551724,
+        0.0
+      ],
+      "n": 120
+    },
+    {
+      "a": "hybrid",
+      "b": "lexical",
+      "metric": "mrr@10",
+      "difference": 0.0355787037037037,
+      "ci": [
+        -0.01026216497527973,
+        0.08180320150659134
+      ],
+      "n": 120
+    },
+    {
+      "a": "hybrid",
+      "b": "dense",
+      "metric": "recall@10",
+      "difference": 0.4,
+      "ci": [
+        0.31666666666666665,
+        0.475
+      ],
+      "n": 120
+    },
+    {
+      "a": "hybrid",
+      "b": "dense",
+      "metric": "mrr@10",
+      "difference": 0.3138723544973545,
+      "ci": [
+        0.26602662570404506,
+        0.3673190745224644
+      ],
+      "n": 120
+    }
+  ],
+  "provenance": {
+    "code": {
+      "git_sha": "9b50ce032936596d8a1b774e024d2765959c94a7",
+      "evaluated_paths": [
+        "backend/app",
+        "backend/pyproject.toml",
+        "evaluation",
+        "ingestion",
+        ":(exclude)evaluation/results"
+      ],
+      "dirty": false,
+      "dirty_files": [],
+      "dirty_digest": null,
+      "recorded": "when the run finished"
+    },
+    "models": {
+      "embedding": {
+        "id": "BAAI/bge-small-en-v1.5",
+        "revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a"
+      },
+      "reranker": {
+        "id": "BAAI/bge-reranker-base",
+        "revision": "2cfc18c9415c912f9d8155881c133215df768a70",
+        "activation": "sigmoid over the single logit (scores in 0..1, uncalibrated)"
+      }
+    },
+    "retrieval_config": {
+      "rrf_k": 60,
+      "retrieve_top_n": 50,
+      "relevance_threshold": 0.35,
+      "threshold_origin": "configuration default set before this evaluation; not tuned on this sample",
+      "cutoff": 10
+    },
+    "data": {
+      "corpus": "synthetic (ingestion/generate_corpus.py)",
+      "database": "regdelta_demo",
+      "gold_file": "evaluation/datasets/synthetic/retrieval_gold.jsonl",
+      "gold_sha256": "a15a3c885260679f23829432dcfb9b347fe0230e105765305b3d55390290da74",
+      "sample_manifest": "evaluation/datasets/synthetic/retrieval_sample.json",
+      "sample_seed": 20261015,
+      "out_of_scope_file": "evaluation/datasets/out_of_scope.jsonl",
+      "out_of_scope_sha256": "798316f85afeb7b584e5e7aeab74ff63358bc01523b3c0a61996d37132127074",
+      "queries": {
+        "semantic": 60,
+        "identifier": 60,
+        "out_of_scope": 15,
+        "control": 15
+      },
+      "relevance": "template-derived citation labels: one relevant circular per query (the cited one)",
+      "exclusions": "the circular a query was taken from is removed from its ranking"
+    },
+    "machine": {
+      "cpu": "Intel(R) Core(TM) i5-5300U CPU @ 2.30GHz",
+      "logical_cpus": 4,
+      "memory_gib": 7.6,
+      "os": "Linux 6.14.0-37-generic",
+      "python": "3.11.16",
+      "torch": "2.14.1+cpu",
+      "torch_threads": 4,
+      "sentence_transformers": "3.4.1"
+    },
+    "timing": {
+      "method": "time.perf_counter around one retrieve() call; models loaded first; one query at a time",
+      "embedding_model_load_s": 6.98,
+      "reranker_load_s": 1.61,
+      "dense_wall_s": 7.7,
+      "lexical_wall_s": 0.8,
+      "hybrid_wall_s": 7.3,
+      "hybrid_rerank_wall_s": 9733.2
+    },
+    "generated": "2026-10-15T13:25:28+00:00",
+    "resummarised": {
+      "code": {
+        "git_sha": "87ccc9256abcc1632e0dc46c4afb4de4e90a6c96",
+        "evaluated_paths": [
+          "backend/app",
+          "backend/pyproject.toml",
+          "evaluation",
+          "ingestion",
+          ":(exclude)evaluation/results"
+        ],
+        "dirty": false,
+        "dirty_files": [],
+        "dirty_digest": null
+      },
+      "generated": "2026-10-15T13:30:12+00:00",
+      "method": "summary recomputed from per_query.jsonl as measured; retrieval not repeated"
+    }
+  }
+}

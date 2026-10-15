@@ -126,7 +126,8 @@ def render_sample(summary: dict[str, Any], label: str) -> list[str]:
         "Ranking quality is measured with the refusal threshold not applied, so every "
         "mode is scored on the same ranked lists. Intervals are 95% cluster-bootstrap "
         "intervals that resample citing circulars (queries from one circular move "
-        "together); out-of-scope refusal uses the Wilson interval.",
+        "together); refusal-suite rates use the Wilson interval. Latencies come from one "
+        "shared laptop; compare them within a run, not across runs.",
         "",
         "| Mode | Recall@1 | Recall@5 | Recall@10 | MRR@10 | p50 ms | p95 ms |",
         "|---|---:|---:|---:|---:|---:|---:|",
