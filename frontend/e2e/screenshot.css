@@ -1,0 +1,8 @@
+/* Screenshot baselines: a sticky header would be stitched into the middle of a
+   full-page capture, and the caret would blink between frames. */
+header.sticky {
+  position: static !important;
+}
+* {
+  caret-color: transparent !important;
+}

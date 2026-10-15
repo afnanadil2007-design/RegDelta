@@ -2,33 +2,132 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design tokens. A single restrained, information-dense light theme.
-   Identifiers and spans use the mono family throughout the app. */
+/* Tokens: see DESIGN.md. One light theme; contrast pairs are tabulated there. */
 :root {
-  --background: 210 20% 98%;
-  --foreground: 222 24% 12%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 24% 12%;
-  --muted: 210 16% 94%;
-  --muted-foreground: 215 16% 42%;
-  --primary: 222 47% 24%;
-  --primary-foreground: 210 40% 98%;
-  --accent: 210 16% 92%;
-  --accent-foreground: 222 47% 24%;
-  --border: 214 20% 88%;
-  --input: 214 20% 88%;
-  --ring: 222 47% 40%;
-  --radius: 0.5rem;
-
-  /* Impact-type semantics */
-  --impact-new: 221 70% 46%;
-  --impact-modified: 38 92% 42%;
-  --impact-conflict: 0 72% 48%;
-  --impact-covered: 152 45% 38%;
-  --impact-none: 215 14% 55%;
+  --desk: #e2ded4;
+  --paper: #faf8f3;
+  --paper-raised: #ffffff;
+  --ink: #1c2230;
+  --ink-soft: #56606e;
+  --ink-faint: #7a8391;
+  --rule: #d9d4c8;
+  --highlight: #f1e3b3;
+  --focus: #2840a8;
+  --error: #a3243b;
+  --error-tint: #f7e1e5;
+  --conflict: #b5321c;
+  --conflict-tint: #f8e4df;
+  --modified: #8a5f00;
+  --modified-tint: #f7edd3;
+  --new: #2840a8;
+  --new-tint: #e4e8f7;
+  --covered: #0f6e44;
+  --covered-tint: #dff0e6;
+  --none: #6b4f3a;
+  --none-tint: #efe8e1;
+  color-scheme: light;
 }
 
-body {
-  @apply bg-background text-foreground antialiased;
-  font-feature-settings: "cv11", "ss01";
+@layer base {
+  html {
+    background: var(--desk);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply font-sans text-base;
+    font-variant-numeric: tabular-nums;
+    margin: 0;
+    min-height: 100dvh;
+  }
+  ::selection {
+    background: var(--highlight);
+    color: var(--ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  a {
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 1px;
+  }
+  input,
+  select,
+  textarea {
+    caret-color: var(--ink);
+  }
+  /* Scrollbars belong to the palette, not the platform. */
+  * {
+    scrollbar-color: var(--ink-faint) transparent;
+    scrollbar-width: thin;
+  }
+  mark {
+    background: var(--highlight);
+    color: inherit;
+  }
+}
+
+@layer components {
+  /* Document text: the lexicon's reading face and measure. */
+  .doc-text {
+    @apply font-serif text-doc max-w-measure;
+    font-variant-numeric: normal;
+    hyphens: manual;
+    /* Circular numbers are long unbroken strings; let them wrap on phones. */
+    overflow-wrap: break-word;
+  }
+  /* Guide words: the only small caps in the system. Lower-case letters become
+     small caps; numerals and section marks keep their full size. */
+  .guide-words {
+    @apply font-serif text-sm font-bold;
+    font-variant-caps: small-caps;
+    letter-spacing: 0.04em;
+  }
+  /* A circular's own upper-case section heading, as printed. */
+  .section-caps {
+    @apply font-serif text-sm font-bold;
+    letter-spacing: 0.06em;
+  }
+  /* A quoted span: wash plus underline, so it never depends on colour alone. */
+  .quote {
+    background: var(--highlight);
+    box-shadow: inset 0 -2px 0 var(--ink);
+    border-radius: 1px;
+  }
+  /* The obligation under assessment when no quote was located for it. */
+  .obligation {
+    text-decoration: underline dotted var(--ink-soft);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 0.25em;
+  }
+  /* Struck-and-replaced: a quote that was not located in its source. */
+  .quote-missing {
+    text-decoration: line-through;
+    text-decoration-color: var(--error);
+    text-decoration-thickness: 1.5px;
+  }
+}
+
+/* The one authored moment: a decision mark settling into the shoulder. */
+@keyframes settle {
+  from {
+    transform: translateY(-6px) scale(0.9);
+    opacity: 0.4;
+  }
+}
+.settle-in {
+  animation: settle 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

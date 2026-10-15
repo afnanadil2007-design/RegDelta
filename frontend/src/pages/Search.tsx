@@ -1,141 +1,141 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
-import { Button, Card, EmptyState, ErrorState, Mono, PageHeader, SkeletonRows } from "@/components/ui";
-import { useSearch } from "@/hooks/queries";
-import type { RetrievalMode, SearchHit } from "@/types/api";
+import { PageHeader, SyntheticTag } from "@/components/lexicon";
+import {
+  isAbort,
+  isMode,
+  ModeControl,
+  QueryField,
+  SubmitOrCancel,
+  useCancellableSearch,
+  useElapsed,
+} from "@/components/SearchForm";
+import { SearchResults } from "@/components/SearchResults";
+import { Field, Select } from "@/components/ui/controls";
+import { EmptyState, RequestError, Skeleton } from "@/components/ui/feedback";
+import { useDepartments } from "@/hooks/queries";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { queryTerms } from "@/lib/text";
+import type { RetrievalMode } from "@/types/api";
 
-const MODES: { value: RetrievalMode; label: string; hint: string }[] = [
-  { value: "hybrid_rerank", label: "Hybrid + rerank", hint: "production pipeline" },
-  { value: "hybrid", label: "Hybrid (RRF)", hint: "fusion, no cross-encoder" },
-  { value: "dense", label: "Dense", hint: "pgvector cosine only" },
-  { value: "lexical", label: "Lexical", hint: "Postgres tsvector only" },
-];
-
+/** Passage search over the whole corpus. The query, mode, and filter live in the URL. */
 export default function Search() {
-  const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<RetrievalMode>("hybrid_rerank");
-  const search = useSearch();
+  useDocumentTitle("Search");
+  const [params, setParams] = useSearchParams();
+  const urlQuery = params.get("q") ?? "";
+  const urlMode = params.get("mode");
+  const urlDepartment = params.get("department") ?? "";
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (query.trim()) search.mutate({ query: query.trim(), mode });
+  const [text, setText] = useState(urlQuery);
+  const [mode, setMode] = useState<RetrievalMode>(isMode(urlMode) ? urlMode : "hybrid");
+  const [department, setDepartment] = useState(urlDepartment);
+  const [error, setError] = useState<string | null>(null);
+  const departments = useDepartments();
+  const { search, run, cancel } = useCancellableSearch();
+  const elapsed = useElapsed(search.isPending);
+
+  const execute = useCallback(
+    (query: string, chosenMode: RetrievalMode, chosenDepartment: string) => {
+      run({ query: query.trim(), mode: chosenMode, department: chosenDepartment || null });
+    },
+    [run],
+  );
+
+  // A shared or refreshed link runs its search once on arrival; later
+  // searches are explicit.
+  const arrived = useRef(false);
+  useEffect(() => {
+    if (arrived.current) return;
+    arrived.current = true;
+    if (urlQuery.trim()) execute(urlQuery, isMode(urlMode) ? urlMode : "hybrid", urlDepartment);
+  }, [execute, urlQuery, urlMode, urlDepartment]);
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!text.trim()) {
+      setError("Type what you are looking for.");
+      return;
+    }
+    setError(null);
+    const next: Record<string, string> = { q: text.trim(), mode };
+    if (department) next.department = department;
+    setParams(next, { replace: true });
+    execute(text, mode, department);
   };
 
   const result = search.data;
-
   return (
-    <div className="px-8 py-6">
+    <div className="flex flex-col gap-5">
       <PageHeader
         title="Search"
-        description="The same retrieval pipeline the agent and the evaluation harness use."
+        context={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            Find passages across every circular. Retrieval only: no model writes an answer.
+            <SyntheticTag>Synthetic corpus</SyntheticTag>
+          </span>
+        }
       />
-
-      <form onSubmit={submit} className="mb-5 flex flex-wrap items-center gap-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="e.g. upfront margin collection reporting timeline"
-          className="min-w-[18rem] flex-1 rounded-md border border-border bg-card px-3 py-2 text-sm outline-none focus:border-ring"
-        />
-        <select
-          value={mode}
-          onChange={(e) => setMode(e.target.value as RetrievalMode)}
-          className="rounded-md border border-border bg-card px-2 py-2 text-sm"
-        >
-          {MODES.map((m) => (
-            <option key={m.value} value={m.value}>
-              {m.label} — {m.hint}
-            </option>
-          ))}
-        </select>
-        <Button type="submit" variant="primary" disabled={search.isPending || !query.trim()}>
-          {search.isPending ? "Searching…" : "Search"}
-        </Button>
+      <form
+        role="search"
+        onSubmit={submit}
+        className="flex flex-col gap-4 bg-paper px-4 py-4 sm:px-6"
+        noValidate
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-start">
+          <QueryField
+            label="Search the circulars"
+            hint="For example: margin collection from clients, or 2024/306"
+            value={text}
+            onChange={setText}
+            error={error}
+          />
+          <Field label="Department" className="md:w-48">
+            {({ id }) => (
+              <Select id={id} value={department} onChange={(event) => setDepartment(event.target.value)}>
+                <option value="">All departments</option>
+                {(departments.data ?? []).map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        </div>
+        <ModeControl mode={mode} onChange={setMode} />
+        <SubmitOrCancel pending={search.isPending} elapsed={elapsed} onCancel={cancel} />
       </form>
 
-      {search.isPending && <SkeletonRows rows={5} />}
-
-      {search.isError && (
-        <ErrorState what="search results" error={search.error} onRetry={() => search.reset()} />
-      )}
-
-      {result && result.below_threshold && (
-        <Card className="border-impact-modified/40 bg-impact-modified/5 p-4">
-          <p className="text-sm font-medium text-impact-modified">
-            No result cleared the relevance threshold.
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            The pipeline returns an explicit refusal rather than a weak best guess.
-            Top score was {result.top_score?.toFixed(3) ?? "—"}.
-          </p>
-        </Card>
-      )}
-
-      {result && !result.below_threshold && result.hits.length === 0 && (
-        <EmptyState title="No matches" hint="Try broader wording or a different mode." />
-      )}
-
-      {result && result.hits.length > 0 && (
-        <>
-          <p className="mb-2 text-xs text-muted-foreground">
-            {result.hits.length} results · mode <Mono>{result.mode}</Mono>
-            {result.excluded_by_temporal_filter.length > 0 && (
-              <span className="ml-2 text-impact-modified">
-                {result.excluded_by_temporal_filter.length} excluded by the point-in-time
-                filter
-              </span>
-            )}
-          </p>
-          <div className="space-y-2">
-            {result.hits.map((hit) => (
-              <HitCard key={hit.chunk_id} hit={hit} />
-            ))}
-          </div>
-        </>
-      )}
-
-      {!result && !search.isPending && !search.isError && (
-        <EmptyState
-          title="Search the corpus"
-          hint="Switch modes to see how dense, lexical, and fused retrieval differ on the same query."
-        />
-      )}
+      <section aria-label="Search results" className="flex flex-col gap-4 bg-paper px-4 py-4 sm:px-6">
+        {search.isPending ? (
+          <>
+            <p className="text-sm text-ink-soft">
+              {mode === "hybrid_rerank"
+                ? "Re-scoring candidate passages with the cross-encoder. On a CPU this can take most of a minute."
+                : "Searching."}
+            </p>
+            <Skeleton lines={6} label="results" />
+          </>
+        ) : null}
+        {search.isError && !isAbort(search.error) ? (
+          <RequestError
+            error={search.error}
+            what="results"
+            onRetry={() => execute(text || urlQuery, mode, department)}
+          />
+        ) : null}
+        {result && !search.isPending ? (
+          <SearchResults result={result} terms={queryTerms(urlQuery || text)} />
+        ) : null}
+        {search.isIdle && !result ? (
+          <EmptyState title="Search by meaning or by number">
+            Hybrid search combines meaning and exact wording and answers in well under a second. Hybrid +
+            rerank reads each candidate closely and is the only mode that refuses when nothing is relevant
+            enough.
+          </EmptyState>
+        ) : null}
+      </section>
     </div>
-  );
-}
-
-function HitCard({ hit }: { hit: SearchHit }) {
-  return (
-    <Card className="p-3">
-      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-        <Link to={`/circulars/${hit.circular_id}`} className="hover:underline">
-          <Mono>{hit.circular_number}</Mono>
-        </Link>
-        <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
-          {hit.dense_rank !== null && <Contribution label="dense" rank={hit.dense_rank} />}
-          {hit.lexical_rank !== null && (
-            <Contribution label="lexical" rank={hit.lexical_rank} />
-          )}
-          <span title="final score">{hit.score.toFixed(3)}</span>
-        </div>
-      </div>
-      <p className="line-clamp-3 text-[13px] leading-relaxed">{hit.text}</p>
-      <div className="mt-1.5 text-[11px] text-muted-foreground">
-        {hit.circular_title} · {hit.issue_date ?? "—"}
-      </div>
-    </Card>
-  );
-}
-
-/** Shows which retriever contributed this hit, and at what rank. */
-function Contribution({ label, rank }: { label: string; rank: number }) {
-  return (
-    <span
-      className="rounded bg-muted px-1.5 py-0.5"
-      title={`${label} retriever ranked this #${rank}`}
-    >
-      {label} #{rank}
-    </span>
   );
 }

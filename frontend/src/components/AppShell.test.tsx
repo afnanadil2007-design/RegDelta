@@ -1,81 +1,70 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "@/components/AppShell";
-import { ConfidenceBadge } from "@/components/ConfidenceBadge";
-import { ImpactBadge } from "@/components/FindingsTable";
-import { SpanHighlight } from "@/components/SpanHighlight";
 
-function withProviders(ui: React.ReactNode) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return (
-    <QueryClientProvider client={qc}>
-      <MemoryRouter>{ui}</MemoryRouter>
-    </QueryClientProvider>
+function renderShell(health: unknown, status = 200) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify(health), { status, headers: { "Content-Type": "application/json" } }),
+    ),
+  );
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <AppShell />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
+const ready = {
+  status: "ok",
+  env: "test",
+  database: "up",
+  schema_revision: "0004_evidence_provenance",
+  provider: {
+    name: "deterministic",
+    model: "regdelta-rules-v1",
+    deterministic: true,
+    ready: true,
+    reason: null,
+  },
+};
+
+afterEach(() => vi.unstubAllGlobals());
+
 describe("AppShell", () => {
-  it("renders all six navigation entries", () => {
-    render(withProviders(<AppShell />));
-    for (const label of [
-      "Dashboard",
-      "Circulars",
-      "Impact Assessment",
-      "Point-in-Time",
-      "Evaluation",
-      "Search",
-    ]) {
-      expect(screen.getByText(label)).toBeInTheDocument();
+  it("lists every route and a skip link", () => {
+    renderShell(ready);
+    const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
+    for (const label of ["Overview", "Circulars", "Search", "Assessments", "Point in time", "Evaluation"]) {
+      expect(within(nav).getByRole("link", { name: label })).toBeInTheDocument();
     }
-  });
-});
-
-describe("ConfidenceBadge", () => {
-  it("never shows a bare float", () => {
-    render(<ConfidenceBadge value={0.87} />);
-    expect(screen.getByText("High")).toBeInTheDocument();
-    expect(screen.getByText("87")).toBeInTheDocument();
-    expect(screen.queryByText("0.87")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main");
   });
 
-  it("bands low confidence separately", () => {
-    render(<ConfidenceBadge value={0.2} />);
-    expect(screen.getByText("Low")).toBeInTheDocument();
-  });
-});
-
-describe("ImpactBadge", () => {
-  it("labels every impact type", () => {
-    const { rerender } = render(<ImpactBadge impact="CONFLICT" />);
-    expect(screen.getByText("Conflict")).toBeInTheDocument();
-    rerender(<ImpactBadge impact="ALREADY_COVERED" />);
-    expect(screen.getByText("Covered")).toBeInTheDocument();
-  });
-});
-
-describe("SpanHighlight", () => {
-  const text = "Brokers shall collect upfront margin from clients.";
-
-  it("marks the span relative to the base offset", () => {
-    // "shall collect" begins at index 8 of `text`; base 1000 shifts the offsets.
-    render(<SpanHighlight text={text} start={1008} end={1021} baseOffset={1000} />);
-    expect(screen.getByText("shall collect")).toBeInTheDocument();
+  it("states the judge in words", async () => {
+    renderShell(ready);
+    expect((await screen.findAllByText(/rule-based judge \(demo\)/)).length).toBeGreaterThan(0);
   });
 
-  it("renders plain text when offsets are out of range", () => {
-    // A bad span must not break the page.
-    const { container } = render(
-      <SpanHighlight text={text} start={9000} end={9100} baseOffset={0} />,
-    );
-    expect(container.querySelector("mark")).toBeNull();
-    expect(container.textContent).toBe(text);
+  it("says when assessments cannot run", async () => {
+    renderShell({ ...ready, provider: { ...ready.provider, ready: false, reason: "Set GROQ_API_KEY." } });
+    expect((await screen.findAllByText(/provider not configured/)).length).toBeGreaterThan(0);
   });
 
-  it("renders plain text when there is no span", () => {
-    const { container } = render(<SpanHighlight text={text} start={null} end={null} />);
-    expect(container.querySelector("mark")).toBeNull();
+  it("opens and closes the phone menu with its button and Escape", () => {
+    renderShell(ready);
+    const button = screen.getByRole("button", { name: "Open menu" });
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByRole("button", { name: "Open menu" })).toHaveAttribute("aria-expanded", "false");
   });
 });

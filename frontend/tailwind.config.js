@@ -1,39 +1,54 @@
 /** @type {import('tailwindcss').Config} */
-// Restrained palette for a professional internal tool. No dark mode by design.
-// Colours are driven by CSS variables (see src/index.css) so shadcn/ui
-// primitives can be dropped in without rewiring.
+// Tokens mirror DESIGN.md. Colours are CSS variables (src/index.css) so the
+// single light theme is defined in one place.
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
+    // Fixed rem steps, ratio about 1.2; nothing below 12px.
+    fontSize: {
+      xs: ["0.75rem", { lineHeight: "1.4" }],
+      sm: ["0.8125rem", { lineHeight: "1.4" }],
+      base: ["0.875rem", { lineHeight: "1.45" }],
+      md: ["1rem", { lineHeight: "1.45" }],
+      doc: ["1.0625rem", { lineHeight: "1.6" }],
+      lg: ["1.125rem", { lineHeight: "1.3" }],
+      xl: ["1.375rem", { lineHeight: "1.25" }],
+      "2xl": ["1.625rem", { lineHeight: "1.2" }],
+      "3xl": ["2rem", { lineHeight: "1.15" }],
+    },
     extend: {
+      // The assessment workspace puts both leaves side by side from here.
+      screens: { wide: "1440px" },
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        muted: { DEFAULT: "hsl(var(--muted))", foreground: "hsl(var(--muted-foreground))" },
-        card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
-        primary: { DEFAULT: "hsl(var(--primary))", foreground: "hsl(var(--primary-foreground))" },
-        accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
-        // Impact-type semantic colours (used by FindingsTable in Stage 10).
+        desk: "var(--desk)",
+        paper: "var(--paper)",
+        raised: "var(--paper-raised)",
+        ink: { DEFAULT: "var(--ink)", soft: "var(--ink-soft)", faint: "var(--ink-faint)" },
+        rule: "var(--rule)",
+        highlight: "var(--highlight)",
+        focus: "var(--focus)",
+        error: { DEFAULT: "var(--error)", tint: "var(--error-tint)" },
         impact: {
-          new: "hsl(var(--impact-new))",
-          modified: "hsl(var(--impact-modified))",
-          conflict: "hsl(var(--impact-conflict))",
-          covered: "hsl(var(--impact-covered))",
-          none: "hsl(var(--impact-none))",
+          conflict: "var(--conflict)",
+          "conflict-tint": "var(--conflict-tint)",
+          modified: "var(--modified)",
+          "modified-tint": "var(--modified-tint)",
+          new: "var(--new)",
+          "new-tint": "var(--new-tint)",
+          covered: "var(--covered)",
+          "covered-tint": "var(--covered-tint)",
+          none: "var(--none)",
+          "none-tint": "var(--none-tint)",
         },
       },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        mono: ["'JetBrains Mono'", "ui-monospace", "SFMono-Regular", "monospace"],
+        sans: ['"Public Sans Variable"', "system-ui", "sans-serif"],
+        serif: ['"Charis SIL"', "Georgia", "serif"],
       },
+      borderRadius: { control: "3px" },
+      maxWidth: { measure: "62ch" },
+      boxShadow: { float: "0 8px 24px rgb(28 34 48 / 0.16)" },
+      transitionTimingFunction: { settle: "cubic-bezier(0.16, 1, 0.3, 1)" },
     },
   },
   plugins: [],
