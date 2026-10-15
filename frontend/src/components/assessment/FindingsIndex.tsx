@@ -204,7 +204,7 @@ export function FindingsIndex({
   );
 }
 
-/** Below 1024px the index becomes a selector with previous and next. */
+/** Below 1440px (the wide breakpoint) the index becomes a selector with previous and next. */
 export function FindingNavigator({
   groups,
   order,

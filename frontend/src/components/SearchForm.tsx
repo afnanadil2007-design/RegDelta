@@ -33,15 +33,19 @@ export function useElapsed(active: boolean): number {
 /**
  * The search request, with cancellation. A new search aborts the one in
  * flight, so a slow reranked query can never overwrite a newer answer.
+ * ``isCurrent`` says whether a request is the one this page last ran and did
+ * not abandon, so a page can run its URL's search exactly when it needs to.
  */
 export function useCancellableSearch() {
   const search = useSearch();
   const { mutate, reset } = search;
   const controller = useRef<AbortController | null>(null);
+  const current = useRef<string | null>(null);
   const run = useCallback(
     (body: SearchRequest) => {
       controller.current?.abort();
       controller.current = new AbortController();
+      current.current = JSON.stringify(body);
       mutate({ body, signal: controller.current.signal });
     },
     [mutate],
@@ -51,8 +55,24 @@ export function useCancellableSearch() {
     controller.current = null;
     reset();
   }, [reset]);
-  useEffect(() => () => controller.current?.abort(), []);
-  return { search, run, cancel };
+  const isCurrent = useCallback((body: SearchRequest) => current.current === JSON.stringify(body), []);
+  // Leaving the page abandons the request. React may also unmount and
+  // remount a page that stays (StrictMode does so on purpose); forgetting
+  // the request lets the remounted page run it again instead of waiting on
+  // an answer that was aborted.
+  useEffect(
+    () => () => {
+      controller.current?.abort();
+      current.current = null;
+    },
+    [],
+  );
+  return { search, run, cancel, isCurrent };
+}
+
+/** The request a query, mode and department filter describe. */
+export function searchRequest(query: string, mode: RetrievalMode, department: string): SearchRequest {
+  return { query: query.trim(), mode, department: department || null };
 }
 
 export function QueryField({

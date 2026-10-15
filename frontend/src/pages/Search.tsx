@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { PageHeader, SyntheticTag } from "@/components/lexicon";
@@ -8,6 +8,7 @@ import {
   ModeControl,
   QueryField,
   SubmitOrCancel,
+  searchRequest,
   useCancellableSearch,
   useElapsed,
 } from "@/components/SearchForm";
@@ -32,24 +33,17 @@ export default function Search() {
   const [department, setDepartment] = useState(urlDepartment);
   const [error, setError] = useState<string | null>(null);
   const departments = useDepartments();
-  const { search, run, cancel } = useCancellableSearch();
+  const { search, run, cancel, isCurrent } = useCancellableSearch();
   const elapsed = useElapsed(search.isPending);
 
-  const execute = useCallback(
-    (query: string, chosenMode: RetrievalMode, chosenDepartment: string) => {
-      run({ query: query.trim(), mode: chosenMode, department: chosenDepartment || null });
-    },
-    [run],
-  );
-
-  // A shared or refreshed link runs its search once on arrival; later
-  // searches are explicit.
-  const arrived = useRef(false);
+  // The URL describes a search: a shared, refreshed or edited link runs it.
+  // A submit runs its search before writing the URL, so this sees it as
+  // current and does not run it twice.
   useEffect(() => {
-    if (arrived.current) return;
-    arrived.current = true;
-    if (urlQuery.trim()) execute(urlQuery, isMode(urlMode) ? urlMode : "hybrid", urlDepartment);
-  }, [execute, urlQuery, urlMode, urlDepartment]);
+    if (!urlQuery.trim()) return;
+    const request = searchRequest(urlQuery, isMode(urlMode) ? urlMode : "hybrid", urlDepartment);
+    if (!isCurrent(request)) run(request);
+  }, [run, isCurrent, urlQuery, urlMode, urlDepartment]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -60,8 +54,8 @@ export default function Search() {
     setError(null);
     const next: Record<string, string> = { q: text.trim(), mode };
     if (department) next.department = department;
+    run(searchRequest(text, mode, department));
     setParams(next, { replace: true });
-    execute(text, mode, department);
   };
 
   const result = search.data;
@@ -122,7 +116,7 @@ export default function Search() {
           <RequestError
             error={search.error}
             what="results"
-            onRetry={() => execute(text || urlQuery, mode, department)}
+            onRetry={() => run(searchRequest(text || urlQuery, mode, department))}
           />
         ) : null}
         {result && !search.isPending ? (
