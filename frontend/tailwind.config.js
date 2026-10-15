@@ -48,7 +48,6 @@ export default {
       borderRadius: { control: "3px" },
       maxWidth: { measure: "62ch" },
       boxShadow: { float: "0 8px 24px rgb(28 34 48 / 0.16)" },
-      transitionTimingFunction: { settle: "cubic-bezier(0.16, 1, 0.3, 1)" },
     },
   },
   plugins: [],

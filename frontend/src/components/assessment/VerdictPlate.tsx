@@ -11,7 +11,7 @@ export function VerdictPlate({ finding, provider }: { finding: Finding; provider
   const impact = IMPACT[finding.impact_type];
   const score = modelScoreLabel(finding.model_confidence, provider?.deterministic ?? false);
   return (
-    <Plate tone={impact.tone} className="flex flex-col gap-3">
+    <Plate tone={impact.tone} className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 className="font-serif text-xl font-bold" style={{ color: `var(--${impact.tone})` }}>
           {impact.label}
@@ -22,7 +22,7 @@ export function VerdictPlate({ finding, provider }: { finding: Finding; provider
       <p className="max-w-measure text-md text-ink">{finding.rationale}</p>
 
       <dl
-        className="grid gap-x-4 gap-y-2 border-t pt-3 text-sm sm:grid-cols-[auto_minmax(0,1fr)]"
+        className="grid gap-x-4 gap-y-2 border-t pt-2 text-sm sm:grid-cols-[auto_minmax(0,1fr)]"
         style={{ borderColor: `var(--${impact.tone})` }}
       >
         <dt className="font-semibold text-ink">Quote check</dt>

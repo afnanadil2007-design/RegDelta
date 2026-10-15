@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type RefObject } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import { toRuns, type Block } from "@/lib/prose";
 import { cn } from "@/lib/utils";
@@ -10,8 +10,23 @@ export const MARK_CLASS: Record<string, string> = {
   term: "bg-highlight",
 };
 
-/** Source text as reading blocks, with evidence marks kept at their offsets. */
-export function Prose({ blocks, className }: { blocks: Block[]; className?: string }) {
+const EVIDENCE = new Set(["quote", "obligation"]);
+
+/**
+ * Source text as reading blocks, with evidence marks kept at their offsets.
+ * ``pointer`` is rendered immediately before the first evidence mark, so a
+ * caller can hang something on the line where the evidence starts.
+ */
+export function Prose({
+  blocks,
+  className,
+  pointer,
+}: {
+  blocks: Block[];
+  className?: string;
+  pointer?: ReactNode;
+}) {
+  let pointed = !pointer;
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {blocks.map((block, index) => {
@@ -25,10 +40,18 @@ export function Prose({ blocks, className }: { blocks: Block[]; className?: stri
           );
           if (!run.spanId) return <span key={i}>{body}</span>;
           const Tag = run.spanId === "obligation" ? "span" : "mark";
-          return (
-            <Tag key={i} data-mark={run.spanId} className={MARK_CLASS[run.spanId] ?? "bg-highlight"}>
+          const mark = (
+            <Tag data-mark={run.spanId} className={MARK_CLASS[run.spanId] ?? "bg-highlight"}>
               {body}
             </Tag>
+          );
+          if (pointed || !EVIDENCE.has(run.spanId)) return <Fragment key={i}>{mark}</Fragment>;
+          pointed = true;
+          return (
+            <Fragment key={i}>
+              {pointer}
+              {mark}
+            </Fragment>
           );
         });
         if (block.kind === "heading") {
@@ -40,8 +63,9 @@ export function Prose({ blocks, className }: { blocks: Block[]; className?: stri
         }
         if (block.kind === "item") {
           return (
-            <p key={index} className="relative pl-5">
-              <span aria-hidden className="absolute left-1 text-ink-soft">
+            <p key={index} className="pl-5">
+              {/* Floated, not positioned: a positioned paragraph would capture the leaf's pointer. */}
+              <span aria-hidden className="float-left -ml-4 text-ink-soft">
                 –
               </span>
               {content}
@@ -52,33 +76,4 @@ export function Prose({ blocks, className }: { blocks: Block[]; className?: stri
       })}
     </div>
   );
-}
-
-/**
- * Vertical offset of the first evidence mark inside ``container``, for the
- * shoulder arrow. Re-measured when the selection changes and when the leaf
- * reflows (width change, zoom, fonts arriving).
- */
-export function useMarkTop(container: RefObject<HTMLElement>, key: unknown): number | null {
-  const [top, setTop] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    const root = container.current;
-    if (!root) return;
-    const measure = () => {
-      const mark = root.querySelector<HTMLElement>("[data-mark=quote], [data-mark=obligation]");
-      if (!mark) {
-        setTop(null);
-        return;
-      }
-      const markBox = mark.getBoundingClientRect();
-      const rootBox = root.getBoundingClientRect();
-      setTop(Math.round(markBox.top - rootBox.top + markBox.height / 2));
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(root);
-    void document.fonts?.ready.then(measure);
-    return () => observer.disconnect();
-  }, [container, key]);
-  return top;
 }

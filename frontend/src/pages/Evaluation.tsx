@@ -147,6 +147,14 @@ function RetrievalAblation({ runs }: { runs: EvalRun[] }) {
           : undefined,
     };
   });
+  // One provenance block when every mode's run shares code, data and notes.
+  const modeRuns = modes.map((mode) => latest.get(mode) as EvalRun);
+  const signature = (run: EvalRun) =>
+    JSON.stringify([run.git_sha, run.dataset, run.notes, run.config?.dirty_digest ?? null]);
+  const shared =
+    modeRuns.length > 1 && modeRuns.every((run) => signature(run) === signature(modeRuns[0]))
+      ? modeRuns.reduce((a, b) => ((b.finished_at ?? "") > (a.finished_at ?? "") ? b : a))
+      : undefined;
   const tableLabel = `Retrieval metrics by mode, ${subsetLabel(active).toLowerCase()} queries`;
 
   return (
@@ -187,7 +195,7 @@ function RetrievalAblation({ runs }: { runs: EvalRun[] }) {
         <tbody>
           {modes.map((mode) => (
             <tr key={mode}>
-              <Td className="font-semibold">{MODE[mode].label}</Td>
+              <Td className="whitespace-nowrap font-semibold">{MODE[mode].label}</Td>
               <Td align="right">{queries(mode) ?? "—"}</Td>
               {metricNames.map((name) => {
                 const metric = find(mode, name);
@@ -244,14 +252,23 @@ function RetrievalAblation({ runs }: { runs: EvalRun[] }) {
           </figure>
         </Plate>
       ) : null}
-      <div className="grid gap-4 md:grid-cols-2">
-        {modes.map((mode) => (
-          <div key={mode} className="flex flex-col gap-1">
-            <h3 className="text-sm font-semibold">{MODE[mode].label} run</h3>
-            <Provenance run={latest.get(mode) as EvalRun} />
-          </div>
-        ))}
-      </div>
+      {shared ? (
+        <div className="flex flex-col gap-1">
+          <h3 className="text-sm font-semibold">
+            Provenance, the same for all {modes.length === 4 ? "four" : modes.length} runs
+          </h3>
+          <Provenance run={shared} />
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {modes.map((mode) => (
+            <div key={mode} className="flex flex-col gap-1">
+              <h3 className="text-sm font-semibold">{MODE[mode].label} run</h3>
+              <Provenance run={latest.get(mode) as EvalRun} />
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

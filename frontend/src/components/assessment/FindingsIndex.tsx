@@ -174,7 +174,7 @@ export function FindingsIndex({
                     <span className="flex min-w-0 flex-col gap-1 pr-2">
                       <span
                         className={cn(
-                          "truncate font-serif text-md font-bold text-ink",
+                          "line-clamp-2 font-serif text-md font-bold text-ink",
                           selected && "underline decoration-ink decoration-[1.5px] underline-offset-4",
                         )}
                       >

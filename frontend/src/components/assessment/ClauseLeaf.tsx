@@ -1,8 +1,8 @@
-import { useId, useMemo, useRef } from "react";
+import { useId, useMemo } from "react";
 
-import { DecisionTick } from "@/components/assessment/DecisionTick";
-import { GuideHead, ShoulderArrow, SyntheticTag } from "@/components/lexicon";
-import { Prose, useMarkTop } from "@/components/Prose";
+import { MarkPointer } from "@/components/assessment/MarkPointer";
+import { GuideHead, SyntheticTag } from "@/components/lexicon";
+import { Prose } from "@/components/Prose";
 import { EmptyState, RequestError, Skeleton } from "@/components/ui/feedback";
 import { around, clauseSpan, clip } from "@/lib/evidence";
 import { toBlocks } from "@/lib/prose";
@@ -32,7 +32,6 @@ export function ClauseLeaf({
   children?: React.ReactNode;
 }) {
   const headId = useId();
-  const body = useRef<HTMLDivElement>(null);
   const span = clauseSpan(finding);
 
   const view = useMemo(() => {
@@ -57,10 +56,8 @@ export function ClauseLeaf({
     };
   }, [finding, clauses]);
 
-  const markTop = useMarkTop(body, `${finding.id}-${view?.shown.length ?? 0}`);
-
   return (
-    <section aria-labelledby={headId} className="flex min-w-0 flex-col gap-4 bg-paper px-4 py-4 sm:px-5">
+    <section aria-labelledby={headId} className="flex min-w-0 flex-col gap-3 bg-paper px-4 py-4 sm:px-5">
       <GuideHead id={headId} first={view?.first} title="Policy manual" last={view?.last} />
       <div className="flex flex-col gap-1">
         <p className="font-serif text-lg font-bold">{pack ? pack.name : "Policy manual"}</p>
@@ -80,24 +77,7 @@ export function ClauseLeaf({
         <>
           {loading ? <Skeleton lines={2} label="neighbouring clauses" /> : null}
           {error ? <RequestError error={error} what="the neighbouring clauses" onRetry={onRetry} /> : null}
-          <div ref={body} className="relative grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3">
-            {markTop !== null ? (
-              <>
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute left-[1.55rem] transition-[top] duration-[180ms] ease-settle"
-                  style={{ top: markTop - 6 }}
-                >
-                  <ShoulderArrow />
-                </span>
-                <span
-                  className="pointer-events-none absolute left-0 transition-[top] duration-[180ms] ease-settle"
-                  style={{ top: markTop - 9 }}
-                >
-                  <DecisionTick decision={finding.analyst_decision} />
-                </span>
-              </>
-            ) : null}
+          <div className="relative grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-5">
             {view.shown.map((clause) => {
               const isCited = clause.id === finding.policy_clause_id;
               const local = isCited && span ? clip(span, clause.char_start, clause.char_end) : null;
@@ -110,7 +90,10 @@ export function ClauseLeaf({
                     {clause.clause_number}
                   </span>
                   <div className={cn("doc-text pb-3", !isCited && "text-ink-soft")}>
-                    <Prose blocks={toBlocks(segments)} />
+                    <Prose
+                      blocks={toBlocks(segments)}
+                      pointer={local ? <MarkPointer decision={finding.analyst_decision} /> : undefined}
+                    />
                     {isCited && !span ? (
                       <p className="mt-1 font-sans text-sm text-ink-soft">
                         {finding.quote_status === "FAILED" && finding.circular_span_start !== null

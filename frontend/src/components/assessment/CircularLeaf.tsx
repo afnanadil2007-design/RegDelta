@@ -1,9 +1,9 @@
-import { useId, useMemo, useRef, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { DecisionTick } from "@/components/assessment/DecisionTick";
-import { GuideHead, Ident, ShoulderArrow, SyntheticTag } from "@/components/lexicon";
-import { Prose, useMarkTop } from "@/components/Prose";
+import { MarkPointer } from "@/components/assessment/MarkPointer";
+import { GuideHead, Ident, SyntheticTag } from "@/components/lexicon";
+import { Prose } from "@/components/Prose";
 import { Button } from "@/components/ui/controls";
 import { Notice, RequestError, Skeleton } from "@/components/ui/feedback";
 import {
@@ -41,7 +41,6 @@ export function CircularLeaf({
 }) {
   const headId = useId();
   const [whole, setWhole] = useState(false);
-  const body = useRef<HTMLDivElement>(null);
   const span = useMemo(() => circularSpan(finding), [finding]);
 
   const view = useMemo(() => {
@@ -58,11 +57,13 @@ export function CircularLeaf({
       last: labels[labels.length - 1],
     };
   }, [detail, span, whole]);
-
-  const markTop = useMarkTop(body, `${finding.id}-${whole}-${view?.shown.length ?? 0}`);
+  // The arrow and tick hang on the line where the quoted text starts.
+  const firstMarked = view?.shown.find(
+    (paragraph) => !isSectionHeading(paragraph) && clip(span, paragraph.char_start, paragraph.char_end),
+  )?.id;
 
   return (
-    <section aria-labelledby={headId} className="flex min-w-0 flex-col gap-4 bg-paper px-4 py-4 sm:px-5">
+    <section aria-labelledby={headId} className="flex min-w-0 flex-col gap-3 bg-paper px-4 py-4 sm:px-5">
       <GuideHead id={headId} first={view?.first} title="Circular" last={view?.last} />
       {detail ? (
         <div className="flex flex-col gap-1">
@@ -93,26 +94,10 @@ export function CircularLeaf({
       ) : null}
 
       {view ? (
-        <div ref={body} className="relative grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3">
-          {markTop !== null ? (
-            <span
-              aria-hidden
-              className="pointer-events-none absolute left-[1.55rem] transition-[top] duration-[180ms] ease-settle"
-              style={{ top: markTop - 6 }}
-            >
-              <ShoulderArrow />
-            </span>
-          ) : null}
-          {markTop !== null ? (
-            <span
-              className="pointer-events-none absolute left-0 transition-[top] duration-[180ms] ease-settle"
-              style={{ top: markTop - 9 }}
-            >
-              <DecisionTick decision={finding.analyst_decision} />
-            </span>
-          ) : null}
+        <div className="relative grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-5">
           {view.shown.map((paragraph) => {
             const local = clip(span, paragraph.char_start, paragraph.char_end);
+            const first = local !== null && paragraph.id === firstMarked;
             const { segments } = segmentText(paragraph.text, paragraph.char_start, local ? [local] : []);
             const heading = isSectionHeading(paragraph);
             return (
@@ -129,6 +114,7 @@ export function CircularLeaf({
                         stripPrefix: numberPrefix(paragraph),
                         keepLines: !paragraph.para_number && !paragraph.heading_path,
                       })}
+                      pointer={first ? <MarkPointer decision={finding.analyst_decision} /> : undefined}
                     />
                   )}
                 </div>
@@ -139,7 +125,7 @@ export function CircularLeaf({
       ) : null}
 
       {view && view.found && view.total > 3 ? (
-        <div>
+        <div className="-my-2">
           <Button variant="quiet" className="-ml-3" onClick={() => setWhole((w) => !w)}>
             {whole
               ? "Show only the surrounding paragraphs"
