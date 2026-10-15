@@ -75,20 +75,24 @@ text exists, not that the interpretation is right.
   ALREADY_COVERED, NO_MATCH), *analyst decision* (PENDING, ACCEPTED,
   REJECTED), *model confidence* (the model's own uncalibrated score), and
   *refusal* (retrieval declining to answer below the relevance threshold).
-- Undecided: whether a real-source corpus will be shipped or only fetched
-  through a manifest; whether human-reviewed annotations will exist.
+- Settled 2026-10-15: the real-source corpus is fetched through a manifest
+  of URLs and checksums (`data/real_sources/manifest.jsonl`); its PDFs are
+  not redistributed. Undecided: whether human-reviewed annotations will
+  exist.
 
 ## Evidence on Hand
 
-- Synthetic corpus manifest: `data/circulars/manifest.jsonl` (300 generated
+- Synthetic corpus manifest: `data/synthetic/manifest.jsonl` (300 generated
   circulars); fictional policy pack:
   `data/policy_packs/internal_compliance_manual_v1.md`.
 - Evaluation datasets: `evaluation/datasets/` (citation-derived gold set,
   generator-derived extraction labels, hand-written refusal cases).
-- Historical evaluation reports under `evaluation/reports/` carry commit
-  `unknown`; they are history, not current results.
-- Absent, and not to be fabricated: customers, testimonials, real regulator
-  documents, human relevance or support annotations, calibrated confidence.
+- Historical evaluation reports under `evaluation/results/historical/` carry
+  commit `unknown`; they are history, not current results.
+- Absent, and not to be fabricated: customers, testimonials, human relevance
+  or support annotations, calibrated confidence. Real regulator documents
+  exist only as a separate research corpus (`data/real_sources/`), never in the
+  demo.
 
 ## Product Principles
 
