@@ -64,6 +64,8 @@ def _provenance(prov: dict[str, Any]) -> list[str]:
         identity += f" with uncommitted changes, digest `{code['dirty_digest'][:16]}`"
     else:
         identity += " (evaluated sources clean)"
+    if code.get("recorded"):
+        identity += f", recorded {code['recorded']}"
     models = prov["models"]
     machine = prov["machine"]
     data = prov["data"]
@@ -72,6 +74,8 @@ def _provenance(prov: dict[str, Any]) -> list[str]:
     loads = ", ".join(
         f"{key.replace('_', ' ')} {value}" for key, value in timing.items() if key != "method"
     )
+    queries = data["queries"]
+    resummarised = prov.get("resummarised")
     return [
         f"- Code: {identity}",
         f"- Generated: {prov['generated']}",
@@ -90,15 +94,25 @@ def _provenance(prov: dict[str, Any]) -> list[str]:
             if data.get("sample_manifest")
             else "; every gold query"
         ),
-        f"- Queries: {data['queries']['semantic']} semantic, "
-        f"{data['queries']['identifier']} identifier, "
-        f"{data['queries']['out_of_scope']} out-of-scope",
+        f"- Queries: {queries['semantic']} semantic, {queries['identifier']} identifier, "
+        f"{queries['out_of_scope']} out-of-scope to refuse, "
+        f"{queries.get('control', 0)} answerable controls without a relevance label",
         f"- Relevance: {data['relevance']}; {data['exclusions']}",
         f"- Machine: {machine['cpu']}, {machine['logical_cpus']} logical CPUs, "
         f"{machine['memory_gib']} GiB RAM, torch {machine.get('torch')} "
         f"({machine.get('torch_threads')} threads), sentence-transformers "
         f"{machine.get('sentence_transformers')}, {machine['os']}",
         f"- Timing: {timing['method']}. Seconds: {loads}.",
+        *(
+            [
+                f"- Summary recomputed {resummarised['generated']} by "
+                f"`{resummarised['code']['git_sha'][:12]}`"
+                + (" with uncommitted changes" if resummarised["code"]["dirty"] else "")
+                + f": {resummarised['method']}"
+            ]
+            if resummarised
+            else []
+        ),
     ]
 
 
@@ -124,23 +138,27 @@ def render_sample(summary: dict[str, Any], label: str) -> list[str]:
             f"{_value(block, 'mrr@10', 'all', ci=True)} | "
             f"{_value(block, 'latency_p50_ms', 'all')} | {_value(block, 'latency_p95_ms', 'all')} |"
         )
-    n_in = next(iter(modes.values()))["n_in_scope"]
-    n_out = next(iter(modes.values()))["n_out_of_scope"]
+    first = next(iter(modes.values()))
+    n_in, n_out = first["n_in_scope"], first["n_out_of_scope"]
+    n_control = first.get("n_controls", 0)
     lines += [
         "",
-        f"Denominator: {n_in} in-scope queries per mode (latency also includes the {n_out} "
-        "out-of-scope queries).",
+        f"Denominator: {n_in} labelled in-scope queries per mode. Latency also includes the "
+        f"{n_out} questions to refuse and the {n_control} controls.",
         "",
         "### Refusal and coverage",
         "",
-        "| Mode | Refused, in scope (unwanted) | Refused, out of scope (wanted) | "
-        "Recall@10 counting refusals as misses |",
-        "|---|---:|---:|---:|",
+        "Only the reranked mode has a refusal threshold. Controls are on-topic questions the "
+        "corpus can answer but that have no relevance label, so they count only here.",
+        "",
+        "| Mode | Refused, labelled in scope (unwanted) | Refused, controls (unwanted) | "
+        "Refused, out of scope (wanted) | Recall@10 counting refusals as misses |",
+        "|---|---:|---:|---:|---:|",
     ]
     for mode, block in modes.items():
         lines.append(
             f"| {MODE_LABEL.get(mode, mode)} | {_refusal(block, 'in_scope')} | "
-            f"{_refusal(block, 'out_of_scope')} | "
+            f"{_refusal(block, 'control')} | {_refusal(block, 'out_of_scope')} | "
             f"{_value(block, 'answered_recall@10', 'in_scope', ci=True)} |"
         )
     lines += [

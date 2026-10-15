@@ -254,6 +254,30 @@ def test_a_refused_query_is_a_miss_only_in_answered_recall() -> None:
     assert values[("refusal_rate", "out_of_scope")] == 1.0
 
 
+def test_a_refused_control_is_a_false_refusal_not_a_correct_one() -> None:
+    in_scope = [_outcome("a", "semantic", ["R"], ["R"], refused=False)]
+    out_scope = [_outcome("oos-1", "out_of_scope", ["X"], [], refused=True)]
+    controls = [
+        _outcome("in-1", "control", ["X"], [], refused=True),
+        _outcome("in-2", "control", ["X"], [], refused=False),
+    ]
+    values = {(m.name, m.subset): m.value for m in refusal_metrics(in_scope, out_scope, controls)}
+    assert values[("refusal_rate", "out_of_scope")] == 1.0
+    assert values[("refusal_rate", "control")] == 0.5
+    assert values[("refusal_rate", "in_scope")] == 0.0
+
+
+def test_the_refusal_suite_separates_questions_to_refuse_from_controls() -> None:
+    from evaluation.run_eval import _refusal_queries, _refusal_rows
+
+    expected = {row["id"]: row["should_refuse"] for row in _refusal_rows()}
+    subsets = {q.query_id: q.subset for q in _refusal_queries()}
+    assert subsets == {
+        qid: "out_of_scope" if refuse else "control" for qid, refuse in expected.items()
+    }
+    assert "control" in subsets.values() and "out_of_scope" in subsets.values()
+
+
 def test_a_mode_without_a_threshold_reports_that_it_never_refuses() -> None:
     metrics = refusal_metrics([_outcome("a", "semantic", ["R"], ["R"])], [])
     assert all(m.value == 0.0 and m.note for m in metrics)

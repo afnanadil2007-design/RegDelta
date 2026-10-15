@@ -25,7 +25,7 @@ CUTOFF = 10
 @dataclass
 class QueryOutcome:
     query_id: str
-    subset: str  # semantic | identifier | out_of_scope
+    subset: str  # semantic | identifier | out_of_scope | control
     cluster: str  # citing circular, or the query id for independent queries
     mode: str
     relevant: list[str]
@@ -104,18 +104,27 @@ def ranking_metrics(outcomes: Sequence[QueryOutcome], subset: str) -> list[Metri
 
 
 def refusal_metrics(
-    in_scope: Sequence[QueryOutcome], out_of_scope: Sequence[QueryOutcome]
+    in_scope: Sequence[QueryOutcome],
+    out_of_scope: Sequence[QueryOutcome],
+    controls: Sequence[QueryOutcome] = (),
 ) -> list[Metric]:
-    """Refusal on in-scope queries (unwanted) and on out-of-scope queries (wanted)."""
+    """Refusal on in-scope queries (unwanted) and on out-of-scope queries (wanted).
+
+    ``controls`` are answerable questions without a relevance label: they
+    cannot score a ranking, but refusing one is a false refusal all the same.
+    """
     if not in_scope or in_scope[0].refused is None:
         note = "This mode has no refusal threshold: it always returns passages."
-        return [
+        out = [
             Metric("refusal_rate", 0.0, len(in_scope), "in_scope", note=note),
             Metric("refusal_rate", 0.0, len(out_of_scope), "out_of_scope", note=note),
         ]
+        if controls:
+            out.append(Metric("refusal_rate", 0.0, len(controls), "control", note=note))
+        return out
     refused_in = sum(1 for o in in_scope if o.refused)
     refused_out = sum(1 for o in out_of_scope if o.refused)
-    return [
+    out = [
         Metric(
             "refusal_rate",
             refused_in / len(in_scope),
@@ -142,6 +151,20 @@ def refusal_metrics(
             note="Recall@10 counting a refused query as a miss.",
         ),
     ]
+    if controls:
+        refused_control = sum(1 for o in controls if o.refused)
+        out.append(
+            Metric(
+                "refusal_rate",
+                refused_control / len(controls),
+                len(controls),
+                "control",
+                ci=wilson(refused_control, len(controls)),
+                note="Answerable questions without a relevance label that the mode declined "
+                "(false refusals).",
+            )
+        )
+    return out
 
 
 def latency_metrics(outcomes: Sequence[QueryOutcome]) -> list[Metric]:
