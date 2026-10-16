@@ -1,36 +1,34 @@
 import path from "node:path";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 
-// The dev server proxies /api to the FastAPI backend so the frontend uses a
-// single origin and the same relative base as production (VITE_API_BASE=/api).
-// REGDELTA_API_URL / REGDELTA_WEB_PORT let a machine whose 8000 or 5173 is
-// taken run the stack elsewhere. Test configuration lives in vitest.config.ts.
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
-  },
-  server: {
-    host: "127.0.0.1",
-    port: Number(process.env.REGDELTA_WEB_PORT ?? 5173),
-    strictPort: true,
-    proxy: {
-      "/api": {
-        target: process.env.REGDELTA_API_URL ?? "http://127.0.0.1:8000",
-        changeOrigin: true,
-      },
+// The dev and preview servers proxy /api to the FastAPI backend, so the
+// frontend uses one origin and the same relative base as the container build
+// (VITE_API_BASE=/api, served by nginx there). The target follows the repo-root
+// .env under the process environment, the same order the API's own settings
+// use, so `make dev-web` reaches the API that `make dev-api` started:
+// REGDELTA_API_URL if set, else 127.0.0.1:API_PORT. REGDELTA_WEB_PORT moves the
+// dev server. Test configuration lives in vitest.config.ts.
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, path.resolve(__dirname, ".."), "");
+  const api = env.REGDELTA_API_URL || `http://127.0.0.1:${env.API_PORT || 8000}`;
+  const proxy = { "/api": { target: api, changeOrigin: true } };
+  return {
+    plugins: [react()],
+    resolve: {
+      alias: { "@": path.resolve(__dirname, "./src") },
     },
-  },
-  preview: {
-    host: "127.0.0.1",
-    port: Number(process.env.REGDELTA_WEB_PORT ?? 4173),
-    strictPort: true,
-    proxy: {
-      "/api": {
-        target: process.env.REGDELTA_API_URL ?? "http://127.0.0.1:8000",
-        changeOrigin: true,
-      },
+    server: {
+      host: "127.0.0.1",
+      port: Number(env.REGDELTA_WEB_PORT || 5173),
+      strictPort: true,
+      proxy,
     },
-  },
+    preview: {
+      host: "127.0.0.1",
+      port: Number(env.REGDELTA_WEB_PORT || 4173),
+      strictPort: true,
+      proxy,
+    },
+  };
 });

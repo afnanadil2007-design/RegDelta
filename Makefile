@@ -1,14 +1,18 @@
 # RegDelta developer entrypoints (Linux). From a fresh clone:
-#   cp .env.example .env
-#   make setup     # postgres container, Python venv from the lockfile, npm ci
+#   cp .env.example .env   # pick free ports; see "Configuration" in README.md
+#   make setup     # checks the stack, starts its postgres, venv from the lockfile, npm ci
 #   make db seed   # create + migrate the database, build the synthetic demo data
-#   make dev-api   # terminal 1: API on 127.0.0.1:8000 (deterministic judge by default)
-#   make dev-web   # terminal 2: web on 127.0.0.1:5173
+#   make dev-api   # terminal 1: API on 127.0.0.1:$API_PORT (deterministic judge by default)
+#   make dev-web   # terminal 2: web on 127.0.0.1:5173, proxying /api to that API
+# Or everything in containers: make up venv install db seed stack-up.
+#
+# Make does not read .env. Docker Compose and the Python and Vite settings do,
+# each with the same order: the process environment, then .env, then defaults.
 .DEFAULT_GOAL := help
-.PHONY: help setup up down venv install db migrate seed corpus ingest graph embed obligations \
-	dev-api dev-web test test-backend test-frontend lint typecheck fmt check \
-	eval eval-retrieval eval-fast eval-suites eval-gate gold labels real-corpus \
-	e2e-db e2e mcp
+.PHONY: help setup up down stack-check stack-up venv install db migrate seed \
+	corpus ingest graph embed obligations dev-api dev-web test test-backend test-frontend \
+	lint typecheck fmt check eval eval-retrieval eval-fast eval-suites eval-gate gold labels \
+	real-corpus e2e-db e2e mcp
 
 # The project virtualenv when it exists, otherwise whatever python is on PATH (CI).
 # Expanded at each use (=, not :=), so `make setup` installs into the venv that
@@ -22,11 +26,30 @@ help: ## List available targets
 
 setup: up venv install ## Postgres container + Python venv + frontend packages
 
-up: ## Start the pgvector Postgres container (loopback only)
+# Every target that starts or stops containers runs the check first: it prints
+# the project, containers, volumes and ports, and refuses when a port is taken
+# or the project's containers or volumes belong to another stack.
+stack-check: ## Show what the Compose stack will touch; refuse a conflict
+	python3 scripts/stack_check.py
+
+up: ## Start this checkout's pgvector Postgres container (loopback only)
+	python3 scripts/stack_check.py postgres
 	docker compose up -d postgres
 
-down: ## Stop the containers (the data volume is kept)
+down: ## Stop and remove this project's containers (volumes, and so data, are kept)
+	python3 scripts/stack_check.py --ownership-only
 	docker compose down
+
+# Images are built one at a time: building both at once does not fit in 8 GB.
+stack-up: ## Build the api and web images and start the whole stack (web on $WEB_PORT)
+	python3 scripts/stack_check.py
+	docker compose build api
+	docker compose build web
+	docker compose up -d
+
+# To reuse this machine's Hugging Face cache instead of downloading the models
+# into the stack, add the overlay: COMPOSE_FILE=docker-compose.yml:docker-compose.host-models.yml
+# (in the environment or .env); stack-check and every docker compose call read it.
 
 venv: ## Create backend/.venv (Python 3.11) if missing
 	[ -x backend/.venv/bin/python ] || python3.11 -m venv backend/.venv

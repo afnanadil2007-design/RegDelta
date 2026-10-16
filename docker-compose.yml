@@ -1,6 +1,14 @@
-# RegDelta local stack: postgres (pgvector) + api + web.
-# Single-user, local-only: every port is published on loopback. No auth, no
-# cloud config by design.
+# RegDelta local stack: postgres (pgvector), api and web. Single user, no
+# authentication: every port is published on loopback only.
+#
+# Project name. Compose names containers, networks and volumes after the
+# project, and would otherwise take it from this directory's name, so any
+# other checkout called RegDelta would share (and adopt) the same containers
+# and data volume. The name below applies unless COMPOSE_PROJECT_NAME (from
+# the environment, then .env) or `docker compose -p` sets another. Run
+# `make stack-check` to see the names, ports and owners before starting.
+name: regdelta-local
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -9,8 +17,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-regdelta}
       POSTGRES_DB: ${POSTGRES_DB:-regdelta}
     ports:
-      # Host side follows POSTGRES_PORT so a machine whose 5432 is taken can
-      # move it (e.g. POSTGRES_PORT=55432 in .env); loopback only.
+      # The host side follows POSTGRES_PORT, the same setting host commands
+      # (make db, seed, dev-api, tests) use to reach this database.
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -23,38 +31,48 @@ services:
   api:
     build:
       context: ./backend
-      dockerfile: Dockerfile
     env_file:
       # Optional so `docker compose up postgres` works before .env exists.
       - path: .env
         required: false
     environment:
-      # Inside the compose network postgres is reachable by service name.
+      # Inside the stack the API always uses this stack's postgres, whatever
+      # .env says for host commands (an empty DATABASE_URL means "assemble it
+      # from the POSTGRES_* parts").
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      # Listen on the container's interface; the port mapping below still
-      # publishes it on the host's loopback only.
+      DATABASE_URL: ""
+      # Listen on the container's interface; the port mapping still publishes
+      # it on the host's loopback only.
       API_HOST: 0.0.0.0
+      API_PORT: "8000"
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
-      # Mount corpus + policy packs read-only for ingestion.
-      - ./data:/app/data
-      # Persist downloaded embedding/reranker models across restarts.
+      # Downloaded embedding and reranker models, kept across restarts.
       - modelcache:/root/.cache
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/health', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 30
+      start_period: 20s
 
   web:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      args:
+        # Build time: written into the bundle. The browser calls this path on
+        # the web origin, never the API's own port.
+        VITE_API_BASE: /api
     environment:
-      # Vite proxies /api to the api service; see frontend/vite.config.ts.
-      VITE_API_BASE: /api
+      # Run time: where nginx inside the web container sends /api.
+      REGDELTA_API_UPSTREAM: api:8000
     ports:
-      - "127.0.0.1:5173:5173"
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
     depends_on:
       - api
 
