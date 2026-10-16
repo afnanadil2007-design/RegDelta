@@ -1,12 +1,12 @@
 {
-  "updated": "2026-10-16T12:35:00+05:30",
-  "status": "Release candidate for independent review; R04 blocked on a human decision; F07, G02, G04 external",
-  "phase": "release repair R01-R11 complete locally; original ledger 63 verified, 3 blocked",
+  "updated": "2026-10-16T20:45:00+05:30",
+  "status": "Correction pass C01-C05 complete locally; release candidate for independent review (v3 package). Open: F07 human reviews, G02 real-provider run, G04 hosted CI, R04 human decision",
+  "phase": "final corrections C01-C05 verified; tested code revision b078808",
   "repo": "/home/afnan/Downloads/Reg-Delta/RegDelta",
   "branch": "repair/regdelta-cleanup",
   "base_sha": "f4a4b57edc5807b5c1ec57072b04db6b8f619ead",
-  "last_code_commit": "bd1e82d",
-  "head": "the docs(maintenance) evidence commit after bd1e82d (git log -1)",
+  "last_code_commit": "b078808",
+  "head": "the docs(maintenance) evidence commit after b078808 (git log -1)",
   "pushed": false,
   "dirty_tree": "clean after the evidence commit; git-ignored artefacts under .artifacts/ (logs, audits, screenshots, r2/)",
   "python_env": "backend/.venv (uv 0.12.5, CPython 3.11.16, torch 2.14.1+cpu)",
@@ -32,7 +32,15 @@
         "regdelta_r2_ci2",
         "regdelta_r2_final_test",
         "regdelta_r2_final_ci",
-        "regdelta_r2_final_e2e"
+        "regdelta_r2_final_e2e",
+        "regdelta_c_focus_test",
+        "regdelta_c_reseed_ci",
+        "regdelta_c_reseed_e2e",
+        "regdelta_c_gate_test",
+        "regdelta_c_gate_ci",
+        "regdelta_c_gate_e2e",
+        "regdelta_c_gate2_test",
+        "regdelta_c_gate2_e2e"
       ],
       "note": "all disposable; kept, not dropped (no destructive cleanup)"
     },
@@ -59,10 +67,10 @@
     }
   },
   "scratch": {
-    "clean_clone": "scratchpad/r2/clean at bd1e82d (uv-hardlinked venv, npm ci, .env for regdelta-r2acc; extraction-suite outputs modified as in CI)"
+    "clean_clone": "scratchpad/r2/clean, detached at b078808 (uv-hardlinked venv, npm ci, .env for regdelta-r2acc); clean tracked tree"
   },
   "env_for_commands": "PATH=backend/.venv/bin:$PATH POSTGRES_HOST=localhost POSTGRES_PORT=55432 POSTGRES_DB=<db> PYTHONPATH=backend:. HF_HUB_OFFLINE=1; Node 20.20.2 via nvm for the frontend",
-  "next_action": "Human review of the branch. External: restore roll.json; review the 39 provisional real-corpus records (F07); one real-provider run with a key (G02); push and read CI jobs backend, retrieval-gate, frontend, e2e (G04); decide on react-router 7 / vitest / vite upgrades for npm audit advisories.",
+  "next_action": "User uploads RegDelta-review-v3.zip for independent review. Then, external and not done: the real-provider smoke run (exact command in regdelta-correction-report.md section 8), the F07 human reviews, the R04 decision, and an authorised push for hosted CI.",
   "outstanding_failures": [],
   "impeccable": {
     "finish_review": "rounds 1 -> 2 -> 3 (fix) -> confirmation: ship (scored items)",
@@ -94,5 +102,25 @@
     },
     "constraints": "disk ~5.6 GB free (92%); 7.6 GiB RAM; build images one at a time; no pruning of others' images/cache",
     "next_action": "independent review of RegDelta-review-v2.zip; then the external steps in the completion report section 7"
+  },
+  "correction_pass": {
+    "task": "final correctness corrections before real-provider validation (C01-C05)",
+    "started": "2026-10-16",
+    "previous_review_package": "RegDelta-review-v2.zip (head bd10a94, code 7602abd)",
+    "progress": {
+      "C01": "verified: one database target from POSTGRES_*; DATABASE_URL refused",
+      "C02": "verified: smoke exit 0 only for a validated COMPLETED run; paid run not executed",
+      "C03": "verified as a mitigation: approved Hub ids at pinned commits only; cache trusted",
+      "C04": "verified: advisories by category from resolver dry runs; reseed changes identified",
+      "C05": "verified: full gate a2ef73f, follow-up gate b078808; package v3"
+    },
+    "commits": [
+      "19fa48f",
+      "7fd3395",
+      "a2ef73f",
+      "ac1e8db",
+      "b078808"
+    ],
+    "tested_code_revision": "b078808"
   }
 }

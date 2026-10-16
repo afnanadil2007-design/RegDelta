@@ -1,0 +1,259 @@
+{
+  "note": "Results of the correction pass C01-C05 (2026-10-16), recorded from the logs named in each row (paths under review-evidence/ in the package, .artifacts/ locally). 'revision' is the commit the check ran on. Failing runs are kept as rows of their own. The release repair's results are in regdelta-release-results.json.",
+  "code_revision": "b078808 (tested: full gate on a2ef73f, follow-up gate on b078808)",
+  "between_gates": "a2ef73f..b078808 changes evaluation/provider_smoke.py, ingestion/generate_corpus.py (a named constant, same output), backend/tests/test_assessment_limits.py, backend/tests/test_provider_smoke.py and docs/maintenance/dependency-advisories.md; neither image contains evaluation/ or ingestion/, so the container results carry over; the follow-up gate re-ran lint, types, the full pytest suite, a reseed and the smoke checks",
+  "checks": [
+    {
+      "check": "C01/C02 focused tests",
+      "command": "pytest test_database_target test_config test_database_guards test_provider_smoke test_migrations",
+      "where": "main tree, regdelta_c_focus_test and scratch *_test databases on regdelta-repair-pg",
+      "revision": "19fa48f (working tree before commit)",
+      "result": "passed",
+      "detail": "first run 5 failed / 91 passed (two test-setup errors: an exported POSTGRES_PORT read by Settings(_env_file=None), and a colliding explicit circular id); fixed; then 96 passed",
+      "evidence": "c/logs/focus-c01-c02-1.log, c/logs/focus-c01-c02-2.log"
+    },
+    {
+      "check": "Old URL path with a reserved-character password",
+      "command": "make_url(f-string URL); alembic Config.set_main_option",
+      "where": "main tree, no connection",
+      "revision": "-",
+      "result": "failed as expected (the defect)",
+      "detail": "the old f-string URL does not parse (ValueError); Alembic's ini interpolation refuses it",
+      "evidence": "c/logs/c01-old-url-behaviour.log"
+    },
+    {
+      "check": "C03 focused tests",
+      "command": "pytest test_model_sources test_model_pins test_config test_database_target",
+      "where": "main tree",
+      "revision": "7fd3395 (working tree before commit)",
+      "result": "passed",
+      "detail": "58 passed",
+      "evidence": "c/logs/focus-c03-1.log"
+    },
+    {
+      "check": "C03 shadowing reproduction",
+      "command": "SentenceTransformer(...) in a directory holding BAAI/bge-small-en-v1.5/; then get_model()",
+      "where": "scratch directory, HF_HUB_OFFLINE=1",
+      "revision": "7fd3395",
+      "result": "demonstrated",
+      "detail": "library constructor with trust_remote_code=False ran the planted code (marker written); guarded loader raised ModelSourceError, marker not written",
+      "evidence": "c/logs/c03-shadow-demonstration.log"
+    },
+    {
+      "check": "C03 real model load",
+      "command": "get_model(), get_reranker(), embed_query, rerank",
+      "where": "main tree, HF cache, offline",
+      "revision": "7fd3395",
+      "result": "passed",
+      "detail": "BAAI/bge-small-en-v1.5@5c38ec7 384-d; BAAI/bge-reranker-base@2cfc18c 0.9906 relevant vs 0.0000 unrelated (threshold 0.35); 11.2 s",
+      "evidence": "c/logs/c03-real-model-load.log"
+    },
+    {
+      "check": "C04 resolver dry runs",
+      "command": "uv pip compile (uv 0.12.5, py3.11, x86-64 Linux), one per fix",
+      "where": "scratch directory; nothing installed",
+      "revision": "-",
+      "result": "recorded",
+      "detail": "baseline resolves to the locked versions; 1 upstream fix in range (langgraph-sdk 0.3.15 via langgraph 0.2.35), 4 own-range conflicts, 6 coupled; plus smallest steps langgraph 0.3.34 and sentence-transformers 5.7.0",
+      "evidence": "c/resolver/"
+    },
+    {
+      "check": "C04 reseed reproduction",
+      "command": "seed --count 60, check_baseline, build_extraction_labels --count 30, run_suites --suite extraction, make e2e-db; git status after each",
+      "where": "clean clone at 207f466, regdelta_c_reseed_ci / _e2e",
+      "revision": "207f466",
+      "result": "explained",
+      "detail": "after the 300-circular reseed: evaluation/datasets/synthetic/obligations_labeled.jsonl and evaluation/results/suites/evaluation_extraction.md changed; manifest and gold set byte-identical",
+      "evidence": "c/logs/reseed-repro/"
+    },
+    {
+      "check": "Lint, format, types",
+      "command": "make lint typecheck",
+      "where": "clean clone",
+      "revision": "a2ef73f and b078808",
+      "result": "passed",
+      "detail": "ruff 0 findings; 172 files formatted; mypy app/ai 0 issues in 27 files",
+      "evidence": "c/logs/gate/lint-typecheck.log, c/logs/gate2/lint-typecheck.log"
+    },
+    {
+      "check": "Backend tests, full suite",
+      "command": "prepare_db on a new database; pytest -q -rs",
+      "where": "clean clone, regdelta_c_gate_test",
+      "revision": "a2ef73f",
+      "result": "passed",
+      "detail": "452 passed, 0 failed, 0 skipped; database created and migrated from empty",
+      "evidence": "c/logs/gate/pytest.log"
+    },
+    {
+      "check": "Backend tests, full suite",
+      "command": "same",
+      "where": "clean clone, regdelta_c_gate2_test",
+      "revision": "b078808",
+      "result": "passed",
+      "detail": "458 passed, 0 failed, 0 skipped",
+      "evidence": "c/logs/gate2/pytest.log"
+    },
+    {
+      "check": "Retrieval regression (CI job)",
+      "command": "prepare_db, seed --count 60, check_baseline",
+      "where": "clean clone, regdelta_c_gate_ci",
+      "revision": "a2ef73f",
+      "result": "passed",
+      "detail": "244 queries; Recall@10 0.9713 vs 0.9713; MRR@10 0.5026 vs 0.5031; tolerance 0.03",
+      "evidence": "c/logs/gate/retrieval-gate.log"
+    },
+    {
+      "check": "Extraction suite (CI job)",
+      "command": "build_extraction_labels --count 30; run_suites --suite extraction",
+      "where": "clean clone",
+      "revision": "a2ef73f",
+      "result": "passed",
+      "detail": "P = R = F1 = 1.000; rewrote the two tracked files explained in C04, then restored exactly those",
+      "evidence": "c/logs/gate/retrieval-gate.log, retrieval-gate-tracked.diffstat, tracked-status.txt"
+    },
+    {
+      "check": "Refusal suite (approved models)",
+      "command": "run_suites --suite refusal",
+      "where": "clean clone, regdelta_c_gate_ci",
+      "revision": "a2ef73f",
+      "result": "passed",
+      "detail": "correct-refusal 1.000 (15), false-refusal 0.000 (15); 22 min",
+      "evidence": "c/logs/gate/refusal-suite.log"
+    },
+    {
+      "check": "Smoke run refusal and preflight",
+      "command": "python -m evaluation.provider_smoke (no REGDELTA_ALLOW_PAID_CALLS); preflight()",
+      "where": "clean clone",
+      "revision": "a2ef73f",
+      "result": "failed (finding)",
+      "detail": "refusal exit 2 as intended, but the preflight accepted the test suite's database (synthetic fixtures, 'Test pack'); fixed in b078808",
+      "evidence": "c/logs/gate/smoke-refusal.log, c/logs/gate/smoke-preflight.log"
+    },
+    {
+      "check": "Smoke run refusal and preflight",
+      "command": "same, against five databases",
+      "where": "clean clone",
+      "revision": "b078808",
+      "result": "passed",
+      "detail": "exit 2 without the opt-in; seeded 300 (two) and 60 circulars: fixture SEBI/HO/DDHS/CIR/P/2019/17 with 4 obligations; both test-suite databases refused",
+      "evidence": "c/logs/gate2/smoke-refusal.log, c/logs/gate2/smoke-preflight.log"
+    },
+    {
+      "check": "Run-level limits",
+      "command": "pytest test_assessment_limits",
+      "where": "main tree, regdelta_c_focus_test",
+      "revision": "b078808 (working tree before commit)",
+      "result": "passed after a test fix",
+      "detail": "first run: CAPPED at the 1 s limit as required, but an extra assertion on the test's total time (40.6 s, worker threads finishing CPU reranking) failed; replaced by the recorded finish time; 3 passed; also in the b078808 full suite",
+      "evidence": "c/logs/focus-c02-limits-preflight.log, c/logs/focus-c02-limits-2.log"
+    },
+    {
+      "check": "Smoke fixture call estimate",
+      "command": "deterministic assessment of the fixture",
+      "where": "main tree, regdelta_c_gate_e2e (disposable)",
+      "revision": "b078808",
+      "result": "measured",
+      "detail": "5 provider calls (4 judgements + memo) of the 12 allowed; COMPLETED, 4 quotes located, memo written",
+      "evidence": "c/logs/smoke-fixture-call-estimate.log"
+    },
+    {
+      "check": "E2E database",
+      "command": "make e2e-db",
+      "where": "clean clone",
+      "revision": "a2ef73f and b078808",
+      "result": "passed",
+      "detail": "300 circulars; 0 tracked changes afterwards both times",
+      "evidence": "c/logs/gate/e2e-db.log, c/logs/gate2/e2e-db.log, tracked-status.txt"
+    },
+    {
+      "check": "Playwright E2E, native servers",
+      "command": "make e2e",
+      "where": "clean clone",
+      "revision": "a2ef73f",
+      "result": "passed",
+      "detail": "21/21 in 4.0 min",
+      "evidence": "c/logs/gate/e2e-native.log"
+    },
+    {
+      "check": "MCP over STDIO",
+      "command": "make mcp",
+      "where": "clean clone",
+      "revision": "a2ef73f",
+      "result": "passed",
+      "detail": "discovery and invocation; unknown circular gives a readable error",
+      "evidence": "c/logs/gate/mcp.log"
+    },
+    {
+      "check": "Container rebuild and start-up",
+      "command": "make stack-up (project regdelta-r2acc)",
+      "where": "Docker",
+      "revision": "a2ef73f",
+      "result": "passed",
+      "detail": "API image rebuilt (dependency layer cached; new 4b578f69f205, 2.52 GB); web image from cache (frontend unchanged); start-up loaded the two approved models at their pinned revisions; nginx -t ok",
+      "evidence": "c/logs/gate/stack-up.log, api-startup.log, images.txt, nginx-t.log"
+    },
+    {
+      "check": "Container acceptance walk",
+      "command": "node accept-container.mjs http://127.0.0.1:8081",
+      "where": "Docker stack",
+      "revision": "a2ef73f",
+      "result": "passed",
+      "detail": "17/17; SSE 28 events over 55 s, first after 26 ms",
+      "evidence": "c/logs/gate/accept-walk.log"
+    },
+    {
+      "check": "Playwright E2E through the container",
+      "command": "REGDELTA_WEB_URL=http://127.0.0.1:8081 npx playwright test",
+      "where": "Docker stack",
+      "revision": "a2ef73f",
+      "result": "passed",
+      "detail": "21/21 in 3.7 min",
+      "evidence": "c/logs/gate/e2e-container.log"
+    },
+    {
+      "check": "API outage through the proxy",
+      "command": "docker compose stop api; GET /api/health; UI; start",
+      "where": "Docker stack",
+      "revision": "a2ef73f",
+      "result": "passed",
+      "detail": "502 application/json api_unreachable in 0.003 s; UI 'The API is not reachable'; 200 after restart",
+      "evidence": "c/logs/gate/api-outage.log"
+    },
+    {
+      "check": "Resource isolation",
+      "command": "identity of every container and volume before and after; make down",
+      "where": "host",
+      "revision": "a2ef73f",
+      "result": "passed",
+      "detail": "0 diff lines for pre-existing containers and volumes",
+      "evidence": "c/logs/gate/identity-*.txt"
+    },
+    {
+      "check": "Real-provider smoke run (G02)",
+      "command": "REGDELTA_ALLOW_PAID_CALLS=1 LLM_PROVIDER=groq POSTGRES_DB=regdelta_demo make provider-smoke",
+      "where": "-",
+      "revision": "-",
+      "result": "unrun",
+      "detail": "paid calls not authorised in this pass",
+      "evidence": "-"
+    },
+    {
+      "check": "Hosted CI (G04)",
+      "command": "push of repair/regdelta-cleanup",
+      "where": "GitHub Actions",
+      "revision": "-",
+      "result": "unrun",
+      "detail": "needs an authorised push",
+      "evidence": "-"
+    },
+    {
+      "check": "Human reviews (F07)",
+      "command": "evaluation.annotation review; evaluation.support_review review",
+      "where": "-",
+      "revision": "-",
+      "result": "unrun",
+      "detail": "39 retrieval-relevance records and 41 semantic-support candidates, 0 reviewed",
+      "evidence": "-"
+    }
+  ]
+}

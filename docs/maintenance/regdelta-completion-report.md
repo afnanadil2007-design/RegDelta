@@ -8,6 +8,11 @@ Evidence for every claim is in the [ledger](regdelta-cleanup-ledger.md)
 [results](regdelta-release-results.json), and the logs packaged under
 `review-evidence/`.
 
+> **Later:** the correction pass C01–C05 (same day) changes the database
+> contract, the smoke run's success criteria, model loading and the
+> advisory assessment, and corrects the `make e2e-db` row in §4; see
+> [regdelta-correction-report.md](regdelta-correction-report.md).
+
 ## 1. Status
 
 **A release candidate for independent review, not yet releasable.** Every
@@ -83,7 +88,7 @@ server:
 | retrieval gate on new `regdelta_r2_final_ci` (60 circulars) | pass: Recall@10 0.9713 (baseline 0.9713), MRR@10 0.5026 (0.5031), tolerance 0.03 |
 | extraction suite | pass: P = R = 1.000 (132/132) |
 | refusal suite (at `ce18f45`) | pass: 15/15 refused, 0/15 controls refused, 23 min 15 s |
-| `make e2e-db` after the CI seed | pass: 300 circulars regenerated, tracked corpus files byte-identical |
+| `make e2e-db` after the CI seed | pass: 300 circulars regenerated; manifest and gold set byte-identical (two other tracked files, written by the extraction step, stayed changed: see the correction report §5) |
 | `make e2e` (own API + production build) | **21/21** |
 | `make mcp` | pass |
 
