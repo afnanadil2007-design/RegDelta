@@ -1,8 +1,13 @@
-__pycache__/
+# The image copies requirements.lock, alembic/, alembic.ini, run_api.py and
+# app/ explicitly; this keeps everything else out of the build context.
+.venv/
+**/__pycache__/
 *.pyc
+*.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-.venv/
+.cache/
 tests/
 .env
+.env.*

@@ -22,6 +22,11 @@ export class ApiRequestError extends Error {
 const UNREACHABLE =
   "The RegDelta API could not be reached. Check that the API server is running, then try again.";
 
+// The web container's proxy answers with this code when it cannot reach the
+// API (frontend/nginx/default.conf.template). To the reader that is the same
+// as no response at all, so it is reported as unreachable.
+const PROXY_UNREACHABLE = "api_unreachable";
+
 /** Typed fetch that unwraps the backend's {error:{code,message,detail}} envelope. */
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
@@ -44,7 +49,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     }
     if (envelope?.error?.code) {
       throw new ApiRequestError(
-        envelope.error.code,
+        envelope.error.code === PROXY_UNREACHABLE ? "network_error" : envelope.error.code,
         envelope.error.message,
         response.status,
         envelope.error.detail,

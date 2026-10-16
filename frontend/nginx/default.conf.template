@@ -1,0 +1,84 @@
+# The web container: the production build plus a reverse proxy to the API.
+#
+# The browser only ever talks to this origin; requests under /api go to the
+# API service on the compose network. The image's entrypoint renders this
+# template at start-up, substituting the one environment variable written with
+# braces below (REGDELTA_API_UPSTREAM, host:port of the API); nginx's own
+# variables ($host, $uri, ...) are left alone.
+
+server {
+    listen 8080;
+    server_name _;
+    server_tokens off;
+    root /usr/share/nginx/html;
+
+    # Resolve the API by name per request (Docker's embedded DNS), so this
+    # container starts, and answers /api with an error the app can explain,
+    # even while the API container is down or restarting.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $api http://${REGDELTA_API_UPSTREAM};
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    # Failures raised here, not by the API, answer in the API's error envelope
+    # so the app never parses an HTML error page. Responses the API itself
+    # sends (its own 404s, 422s and 503s) pass through untouched.
+    location @api_unreachable {
+        default_type application/json;
+        return 502 '{"error":{"code":"api_unreachable","message":"The web server could not reach the RegDelta API. Check that the api container is running, then try again.","detail":null}}';
+    }
+    location @api_timeout {
+        default_type application/json;
+        return 504 '{"error":{"code":"api_timeout","message":"The RegDelta API did not answer within 5 minutes. A reranked search can take minutes on a CPU; try again, or use Hybrid.","detail":null}}';
+    }
+
+    location = /api {
+        default_type application/json;
+        return 404 '{"error":{"code":"not_found","message":"No API route at /api.","detail":null}}';
+    }
+
+    location /api/ {
+        # With a variable in proxy_pass and no URI part, the request URI is
+        # passed unchanged: /api/health here is /api/health on the API.
+        proxy_pass $api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Connection "";
+        # A reranked search measured p95 117 s on the evaluation laptop;
+        # nginx's 60 s default would cut it off.
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        error_page 502 503 = @api_unreachable;
+        error_page 504 = @api_timeout;
+    }
+
+    # The live assessment trace (Server-Sent Events): unbuffered, so each event
+    # reaches the browser when the API sends it. The API pings every 15 s and
+    # ends the stream itself after 15 minutes, so this read timeout never
+    # closes a healthy stream.
+    location ~ ^/api/assessments/[^/]+/stream$ {
+        proxy_pass $api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1h;
+        error_page 502 503 = @api_unreachable;
+        error_page 504 = @api_timeout;
+    }
+
+    # Hashed build assets never change under the same name.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # Every other path is a client-side route: serve the app and let it route.
+    location / {
+        add_header Cache-Control "no-cache";
+        try_files $uri /index.html;
+    }
+}
