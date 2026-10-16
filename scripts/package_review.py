@@ -78,11 +78,26 @@ SECRETS = [
     (re.compile(rb"\bhf_[A-Za-z0-9]{30,}"), "Hugging Face token"),
     (
         re.compile(
-            rb"(?i)(api[_-]?key|secret|token|password)\s*[=:]\s*['\"]?(?!regdelta\b|change-me|example|placeholder|\$\{|<)[A-Za-z0-9/+_-]{16,}"
+            rb"(?i)(api[_-]?key|secret|token|password)[ \t]*[=:][ \t]*['\"]?"
+            rb"(?!regdelta\b|change-me|example|placeholder|\$\{|<)[A-Za-z0-9/+_-]{16,}"
         ),
         "assigned secret",
     ),
 ]
+# Matches checked by hand and allowed: (path in the package, SHA-256 of the
+# matched text). Only these exact strings pass; anything else in the same
+# file is still refused. Both are fake "gsk-" placeholders (real Groq keys
+# start "gsk_") that test_config.py uses to prove keys never leak into reprs.
+ALLOWED = {
+    (
+        "RegDelta/backend/tests/test_config.py",
+        "4b7b74c813a84c9373c0874b0d94c956f308ec48dc3472dddc42e13662b18f43",
+    ),
+    (
+        "RegDelta/backend/tests/test_config.py",
+        "4e5cfd64610f325d55bd311e65e1ee4f4883635902d8d5622d369a76f16abe55",
+    ),
+}
 REDACTIONS = [
     (re.compile(r"postgresql(\+\w+)?://[^:@/\s]+:[^@/\s]+@"), r"postgresql\1://<user>:<redacted>@"),
     (
@@ -168,10 +183,14 @@ def main(argv: list[str]) -> int:
         for pattern, why in FORBIDDEN
         if pattern.search(name.removeprefix(PREFIX))
     ]
+    allowed: list[str] = []
     for name, data in entries.items():
         for pattern, what in SECRETS:
-            if pattern.search(data):
-                problems.append(f"{name}: looks like it contains a {what}")
+            for match in pattern.finditer(data):
+                if (name, hashlib.sha256(match.group(0)).hexdigest()) in ALLOWED:
+                    allowed.append(f"{name}: a known test placeholder ({what})")
+                else:
+                    problems.append(f"{name}: looks like it contains a {what}")
     if problems:
         for problem in problems:
             print(f"REFUSED: {problem}")
@@ -194,6 +213,7 @@ def main(argv: list[str]) -> int:
         },
         "results": json.loads(args.results.read_text(encoding="utf-8")),
         "redactions": redacted,
+        "scan_allowed": allowed,
         "files": {name: hashlib.sha256(data).hexdigest() for name, data in sorted(entries.items())},
     }
     entries[f"{PREFIX}review-evidence/MANIFEST.json"] = (
