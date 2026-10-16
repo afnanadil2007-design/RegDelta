@@ -95,8 +95,8 @@ def test_memo_summary_says_what_was_checked_and_never_verified() -> None:
         )
     )
     assert (
-        "Summary: 3 finding(s) for N/1: 2 with quotations located in the circular and the "
-        "manual, 1 with no clause to compare." in memo
+        "Summary: 3 finding(s) for N/1: 2 whose quotations were found in their sources, "
+        "1 with no clause to compare." in memo
     )
     assert "verified" not in memo.lower()
 

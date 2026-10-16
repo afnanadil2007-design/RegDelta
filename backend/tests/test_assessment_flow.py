@@ -94,7 +94,7 @@ def test_memo_counts_located_quotations_and_claims_nothing_more(finished_run: di
     statuses = [f["quote_status"] for f in finished_run["findings"]]
     memo = finished_run["memo"]
     # The memo covers findings with located quotes and those with no clause.
-    assert f"{statuses.count('VERIFIED')} with quotations located in the circular" in memo
+    assert f"{statuses.count('VERIFIED')} whose quotations were found in their sources" in memo
     assert f"{statuses.count('NOT_APPLICABLE')} with no clause to compare" in memo
     assert "verified" not in memo.lower()
 
