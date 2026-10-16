@@ -12,7 +12,7 @@
 .PHONY: help setup up down stack-check stack-up venv install db migrate seed \
 	corpus ingest graph embed obligations dev-api dev-web test test-backend test-frontend \
 	lint typecheck fmt check eval eval-retrieval eval-fast eval-suites eval-gate gold labels \
-	real-corpus e2e-db e2e mcp
+	real-corpus e2e-db e2e mcp provider-smoke
 
 # The project virtualenv when it exists, otherwise whatever python is on PATH (CI).
 # Expanded at each use (=, not :=), so `make setup` installs into the venv that
@@ -151,3 +151,8 @@ e2e: ## Playwright end-to-end tests (starts the API and a production build itsel
 
 mcp: ## Demonstrate the MCP server over STDIO
 	$(PY) -m mcp_server.test_mcp_client
+
+# Never part of `make test`: it calls a real, possibly billed, provider. See
+# evaluation/provider_smoke.py for the preconditions and the caps it applies.
+provider-smoke: ## One capped real-model assessment (needs a key and REGDELTA_ALLOW_PAID_CALLS=1)
+	$(PY) -m evaluation.provider_smoke --export

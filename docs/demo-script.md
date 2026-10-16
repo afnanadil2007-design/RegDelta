@@ -6,7 +6,8 @@ synthetic database and the deterministic judge, so it needs no API key and
 looks the same on every machine.
 
 Before you start: `make db seed`, then `make dev-api` and `make dev-web`, and
-open http://127.0.0.1:5173.
+open http://127.0.0.1:5173. Or run it all in containers (`make stack-up`, see
+the README) and open http://127.0.0.1:8080 (`WEB_PORT`).
 
 ## 0:00 — Where the work is (Overview)
 
@@ -81,3 +82,24 @@ open http://127.0.0.1:5173.
   per-query latency, intervals, and the code version and models that produced
   each number. The labels are template-derived from the synthetic corpus,
   which the page states.
+
+## Afterwards — the real-provider smoke check (not part of the demo)
+
+The demo and every automated test use the deterministic judge. One capped
+run with a real model shows the provider path works; it has **not** been run
+for this revision (no key was available), and it can be billed, so it runs
+only when asked for:
+
+```bash
+# in .env or the shell: LLM_PROVIDER=groq (or anthropic), its key, LLM_MODEL
+REGDELTA_ALLOW_PAID_CALLS=1 POSTGRES_DB=regdelta_demo make provider-smoke
+```
+
+It assesses the synthetic circular with the fewest obligations, capped at 12
+provider calls, 20,000 tokens and 300 s, one call at a time. It prints the
+run, status, provider and model, tokens and the cost estimate (or why it is
+unknown), and adds the findings to the semantic-support candidates as
+real-model output (`evaluation/datasets/support/`). Then open the run in the
+workspace: the plate names the model, scores read "model-stated,
+uncalibrated", and the memo must not call any finding verified.
+
