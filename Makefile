@@ -140,11 +140,11 @@ real-corpus: ## Re-fetch the official SEBI documents named by the manifest and v
 # The disposable end-to-end database (override to keep another beside it).
 REGDELTA_E2E_DB ?= regdelta_e2e
 
-# Reuses the synthetic PDFs when `make seed` has written them, otherwise
-# generates them (deterministically, so a fresh clone gets the same corpus).
+# Always regenerates the 300 synthetic PDFs (deterministic, seconds): reusing
+# whatever is on disk would build the 60-circular CI corpus after `seed --count 60`.
 e2e-db: ## Disposable regdelta_e2e database with the seeded synthetic demo data
 	POSTGRES_DB=$(REGDELTA_E2E_DB) $(PY) -m ingestion.prepare_db
-	POSTGRES_DB=$(REGDELTA_E2E_DB) $(PY) -m ingestion.seed $(if $(wildcard data/synthetic/pdf/*.pdf),--skip-corpus)
+	POSTGRES_DB=$(REGDELTA_E2E_DB) $(PY) -m ingestion.seed
 
 e2e: ## Playwright end-to-end tests (starts the API and a production build itself)
 	cd frontend && REGDELTA_PYTHON=$(PY) REGDELTA_E2E_DB=$(REGDELTA_E2E_DB) npx playwright test
