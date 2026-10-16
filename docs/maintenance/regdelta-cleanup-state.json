@@ -1,14 +1,14 @@
 {
-  "updated": "2026-10-16T00:30:00+05:30",
-  "status": "Ready for human review",
-  "phase": "complete locally; ledger 63 verified, 3 blocked (F07 human review, G02 provider key, G04 remote CI after a push)",
+  "updated": "2026-10-16T12:35:00+05:30",
+  "status": "Release candidate for independent review; R04 blocked on a human decision; F07, G02, G04 external",
+  "phase": "release repair R01-R11 complete locally; original ledger 63 verified, 3 blocked",
   "repo": "/home/afnan/Downloads/Reg-Delta/RegDelta",
   "branch": "repair/regdelta-cleanup",
   "base_sha": "f4a4b57edc5807b5c1ec57072b04db6b8f619ead",
-  "last_code_commit": "2c54739",
-  "head": "the docs(maintenance) commit after 2c54739 (git log -1)",
+  "last_code_commit": "bd1e82d",
+  "head": "the docs(maintenance) evidence commit after bd1e82d (git log -1)",
   "pushed": false,
-  "dirty_tree": "clean after the docs(maintenance) commit; git-ignored local artefacts under .artifacts/ (logs, eval-as-run backup, impeccable-roll-original.json)",
+  "dirty_tree": "clean after the evidence commit; git-ignored artefacts under .artifacts/ (logs, audits, screenshots, r2/)",
   "python_env": "backend/.venv (uv 0.12.5, CPython 3.11.16, torch 2.14.1+cpu)",
   "node": "nvm 20.20.2 for frontend (matches CI); 22.23.2 for playwright-cli",
   "services": {
@@ -25,22 +25,41 @@
         "regdelta_ci",
         "regdelta_ci2",
         "regdelta_clone_test",
-        "regdelta_clone_e2e"
+        "regdelta_clone_e2e",
+        "regdelta_r2_clone_test",
+        "regdelta_r2_clone_e2e",
+        "regdelta_r2_ci",
+        "regdelta_r2_ci2",
+        "regdelta_r2_final_test",
+        "regdelta_r2_final_ci",
+        "regdelta_r2_final_e2e"
       ],
       "note": "all disposable; kept, not dropped (no destructive cleanup)"
     },
-    "app_servers": "none running: dev API 8010, Vite 5180 and preview 4190 were stopped; Playwright stops its own (8020/4180, 8030/4181)",
+    "app_servers": "none running",
     "do_not_touch": [
       "regdelta-postgres-1",
       "regdelta_pgdata",
       "ai-trading-*",
       "jarvis-*",
       "uvicorn on 0.0.0.0:8000"
-    ]
+    ],
+    "acceptance_stack": {
+      "compose_project": "regdelta-r2acc",
+      "containers": "removed by make down",
+      "volumes_kept": [
+        "regdelta-r2acc_pgdata",
+        "regdelta-r2acc_modelcache"
+      ],
+      "images": [
+        "regdelta-r2acc-api:latest (d439c4725dd8, 2.52 GB)",
+        "regdelta-r2acc-web:latest (c69017ea8795, 95.5 MB)"
+      ],
+      "ports_when_up": "127.0.0.1 55433/8041/8081"
+    }
   },
   "scratch": {
-    "clean_clone": "scratchpad/clean2 at 2c54739 (own backend/.venv, node_modules, generated data/synthetic/pdf)",
-    "ci_clone": "scratchpad/clean (60-document CI corpus; local modifications from generation, not committed)"
+    "clean_clone": "scratchpad/r2/clean at bd1e82d (uv-hardlinked venv, npm ci, .env for regdelta-r2acc; extraction-suite outputs modified as in CI)"
   },
   "env_for_commands": "PATH=backend/.venv/bin:$PATH POSTGRES_HOST=localhost POSTGRES_PORT=55432 POSTGRES_DB=<db> PYTHONPATH=backend:. HF_HUB_OFFLINE=1; Node 20.20.2 via nvm for the frontend",
   "next_action": "Human review of the branch. External: restore roll.json; review the 39 provisional real-corpus records (F07); one real-provider run with a key (G02); push and read CI jobs backend, retrieval-gate, frontend, e2e (G04); decide on react-router 7 / vitest / vite upgrades for npm audit advisories.",
@@ -49,5 +68,31 @@
     "finish_review": "rounds 1 -> 2 -> 3 (fix) -> confirmation: ship (scored items)",
     "reviewer_side_effect": "reviewer overwrote .impeccable/questions/roll.json (git-ignored); not restored by this session (the reviewer's write was blocked by the permission check). Original saved at .artifacts/impeccable-roll-original.json; user restores with: cp .artifacts/impeccable-roll-original.json .impeccable/questions/roll.json",
     "detector": "source 0 findings; live cream-palette on desk (contract-pinned); desk since moved to #E2DED4"
+  },
+  "release_repair": {
+    "task": "focused release repair R01-R11 (follow-up to the 66-item cleanup)",
+    "started": "2026-10-16",
+    "previous_review_revision": "0dc9437 (RegDelta-review.zip beside the repo is a git archive of it)",
+    "progress": {
+      "R01": "verified (container final pass bd1e82d)",
+      "R02": "verified",
+      "R03": "verified",
+      "R04": "blocked: human decision on braces (no patched release) and Python majors",
+      "R05": "verified; human review pending",
+      "R06": "verified",
+      "R07": "verified",
+      "R08": "verified locally; hosted pending",
+      "R09": "verified (native 207f466, container bd1e82d)",
+      "R10": "verified; no screen-reader session",
+      "R11": "package built after the evidence commit"
+    },
+    "resource_identity_at_start": {
+      "regdelta-postgres-1": "id 6cfdea53e355 project=regdelta (working_dir /home/afnan/Downloads/RegDelta), volume regdelta_pgdata, Exited 7 weeks ago",
+      "regdelta-repair-pg": "id 94a9477d008f label owner=regdelta-repair-session, volume regdelta_repair_pgdata, 127.0.0.1:55432, Exited (host reboot)",
+      "port_5432": "ai-trading-postgres (0.0.0.0)",
+      "port_8000": "ai-trading-api (0.0.0.0)"
+    },
+    "constraints": "disk ~5.6 GB free (92%); 7.6 GiB RAM; build images one at a time; no pruning of others' images/cache",
+    "next_action": "independent review of RegDelta-review-v2.zip; then the external steps in the completion report section 7"
   }
 }
