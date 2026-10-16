@@ -34,8 +34,9 @@ from app.ai.graph.state import AssessmentState
 # Recorded on every agent run so a stored trace stays interpretable after the
 # graph changes. v2: the budget is checked before every provider call, workers
 # persist their own findings, and unverified judgements are kept as findings
-# with quote status FAILED instead of being dropped.
-GRAPH_VERSION = "v2"
+# with quote status FAILED instead of being dropped. v3: the memo is told which
+# findings' quotes were located and no longer calls findings "verified".
+GRAPH_VERSION = "v3"
 
 
 def _after_fan_in(_: AssessmentState, ctx: GraphContext) -> str:

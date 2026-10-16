@@ -135,7 +135,7 @@ export function RunNotices({
         tone="warning"
         title={`${plural(counts.quote_failed, "finding")} rest${counts.quote_failed === 1 ? "s" : ""} on a quote that was not located`}
       >
-        Their interpretation is unverified. Each one shows the quote that could not be found.
+        The evidence they cite was not found in its source. Each one shows the quote that could not be found.
       </Notice>,
     );
   }

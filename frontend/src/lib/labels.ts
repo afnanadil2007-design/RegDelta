@@ -53,11 +53,11 @@ export const QUOTE_STATUS: Record<QuoteStatus, { label: string; detail: string }
   VERIFIED: {
     label: "Quotes located",
     detail:
-      "Both quotes were found verbatim in their sources. This checks the text exists, not that the interpretation is right.",
+      "Each quote was found verbatim in its source. This checks the text exists, not that the interpretation is right.",
   },
   FAILED: {
     label: "Quote not located",
-    detail: "A quote could not be found in its source, so this interpretation is unverified.",
+    detail: "A quote could not be found in its source, so the evidence this interpretation cites is missing.",
   },
   NOT_APPLICABLE: {
     label: "No quote to check",

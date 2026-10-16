@@ -481,13 +481,22 @@ def _draft(
 
 
 async def synthesize_memo(state: AssessmentState, ctx: GraphContext) -> dict[str, Any]:
-    """Write the analyst-facing memo from the verified findings."""
+    """Write the analyst-facing memo.
+
+    It covers the findings whose quotes were located in their sources and the
+    obligations no clause matched. A located quote shows the quoted text
+    exists, not that the judgement is right, so the memo is told which is
+    which and never calls a finding verified.
+    """
     findings = [f for f in state.get("findings", []) if f["quote_status"] in _MEMO_ELIGIBLE]
 
     async with ctx.tracer.step("synthesize_memo", {"finding_count": len(findings)}) as step:
         if not findings:
-            step.summary = "No verified findings; memo skipped"
-            return {"memo": None, "memo_note": "No verified findings, so no memo was written."}
+            step.summary = "No finding with located quotes or a no-match result; memo skipped"
+            return {
+                "memo": None,
+                "memo_note": "No finding had its quotes located, so no memo was written.",
+            }
 
         async with get_sessionmaker()() as session:
             circular = await CircularRepository(session).get(state["circular_id"])
@@ -497,6 +506,11 @@ async def synthesize_memo(state: AssessmentState, ctx: GraphContext) -> dict[str
                 {
                     "clause": f["clause_number"],
                     "impact": f["impact_type"],
+                    "quotes": (
+                        "located"
+                        if f["quote_status"] == QuoteStatus.VERIFIED.value
+                        else "none (no clause to compare)"
+                    ),
                     "rationale": f["rationale"],
                 }
                 for f in findings

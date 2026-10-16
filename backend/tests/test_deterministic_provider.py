@@ -74,6 +74,33 @@ def test_memo_states_that_it_is_rule_based() -> None:
     assert "C.3" in memo
 
 
+def test_memo_summary_says_what_was_checked_and_never_verified() -> None:
+    # A located quote shows the text exists, not that the impact is right, so
+    # the summary counts located quotations and never calls findings verified.
+    findings = json.dumps(
+        [
+            {"clause": "C.3", "impact": "MODIFIED", "quotes": "located", "rationale": "x"},
+            {"clause": "G.2", "impact": "CONFLICT", "quotes": "located", "rationale": "y"},
+            {
+                "clause": None,
+                "impact": "NO_MATCH",
+                "quotes": "none (no clause to compare)",
+                "rationale": "z",
+            },
+        ]
+    )
+    memo = deterministic.complete(
+        render_prompt(
+            "synthesize_memo", findings=findings, circular_number="N/1", circular_title="T"
+        )
+    )
+    assert (
+        "Summary: 3 finding(s) for N/1: 2 with quotations located in the circular and the "
+        "manual, 1 with no clause to compare." in memo
+    )
+    assert "verified" not in memo.lower()
+
+
 def test_unknown_prompts_and_images_are_unsupported_errors() -> None:
     gateway = LLMGateway(Settings(_env_file=None, llm_provider="deterministic"))  # type: ignore[call-arg]
     with pytest.raises(GatewayError) as text_error:

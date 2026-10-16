@@ -131,7 +131,7 @@ def test_graph_has_the_specified_nodes() -> None:
 
 
 def test_graph_version_is_recorded() -> None:
-    assert GRAPH_VERSION == "v2"
+    assert GRAPH_VERSION == "v3"
 
 
 def test_fan_out_emits_one_send_per_obligation() -> None:

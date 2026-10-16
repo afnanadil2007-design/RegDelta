@@ -1,13 +1,14 @@
-"""Layer-1 groundedness: programmatic verification that a claim is supported.
+"""Layer-1 groundedness: a programmatic check that a judgement's quotes exist.
 
-This is the check that makes a finding evidence rather than assertion. The
-judge quotes; this module re-locates both quotes in the source text and
-converts them to offsets. A quote that cannot be found means the model
-described something the document does not say, and the claim is rejected —
-never stored with a guessed offset.
+The judge quotes; this module re-locates both quotes in the source text and
+converts them to offsets. A quote that cannot be found means the model cited
+something the document does not say, so the finding is marked FAILED, never
+stored with a guessed offset.
 
-Layer 2 (an LLM judge over rationales, calibrated against human labels) is a
-separate, unimplemented suite; see docs/evaluation.md.
+A located quote shows the quoted text exists. It does not show that the
+impact or the rationale follows from it: that needs a person reading the
+evidence (evaluation/support_review.py). No model judge of rationales is
+implemented; see docs/evaluation.md.
 """
 
 from __future__ import annotations
