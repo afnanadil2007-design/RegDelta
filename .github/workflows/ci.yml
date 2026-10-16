@@ -58,7 +58,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
-          key: hf-${{ runner.os }}-bge-small-en-v1.5-bge-reranker-base
+          key: hf-${{ runner.os }}-bge-small-en-v1.5@5c38ec7c-bge-reranker-base@2cfc18c9
       - name: Install (locked)
         run: |
           python -m pip install --upgrade pip
@@ -110,7 +110,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
-          key: hf-${{ runner.os }}-bge-small-en-v1.5-bge-reranker-base
+          key: hf-${{ runner.os }}-bge-small-en-v1.5@5c38ec7c-bge-reranker-base@2cfc18c9
       - name: Install (locked)
         run: |
           python -m pip install --upgrade pip
@@ -189,7 +189,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
-          key: hf-${{ runner.os }}-bge-small-en-v1.5-bge-reranker-base
+          key: hf-${{ runner.os }}-bge-small-en-v1.5@5c38ec7c-bge-reranker-base@2cfc18c9
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
