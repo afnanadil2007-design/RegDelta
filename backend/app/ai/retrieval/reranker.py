@@ -36,6 +36,12 @@ log = get_logger("app.ai.retrieval.reranker")
 # quadratically inflate attention cost on CPU.
 _MAX_LENGTH = 512
 _BATCH_SIZE = 16
+# CrossEncoder.predict batches in the order it is given and pads each batch to
+# its longest pair. Sorting by length first was measured and gave no gain here
+# (chunks are 800-1500 characters; evaluation/results/latency/
+# 2026-10-16-rerank-bench), so arrival order, the measured configuration,
+# stays. The switch exists so that benchmark can be rerun.
+SORT_BY_LENGTH = False
 
 _reranker: CrossEncoder | None = None
 _reranker_lock = threading.Lock()
@@ -83,12 +89,13 @@ def rerank(query: str, passages: list[tuple[int, str]]) -> list[tuple[int, float
         return []
 
     model = get_reranker()
-    pairs = [[query, text] for _, text in passages]
+    order = list(range(len(passages)))
+    if SORT_BY_LENGTH:
+        order.sort(key=lambda i: len(passages[i][1]))
+    pairs = [[query, passages[i][1]] for i in order]
     with _predict_lock:
         scores = model.predict(pairs, batch_size=_BATCH_SIZE, show_progress_bar=False)
 
-    scored = [
-        (chunk_id, float(score)) for (chunk_id, _), score in zip(passages, scores, strict=True)
-    ]
+    scored = [(passages[i][0], float(score)) for i, score in zip(order, scores, strict=True)]
     scored.sort(key=lambda pair: (-pair[1], pair[0]))
     return scored

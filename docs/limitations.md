@@ -63,9 +63,17 @@ What RegDelta does not do, or does not yet show, stated plainly.
 - **Remote CI has not run on this revision.** The workflows were exercised
   locally with the same commands; the hosted run happens after review and
   push.
-- **Reranking is slow on CPU.** Interactive reranked searches take tens of
-  seconds on a modest laptop; the search page shows a running clock and a
-  Cancel button, and Hybrid is the default mode.
+- **Reranking is slow on CPU.** A reranked search took a median of 62 s on
+  the evaluation laptop on 2026-10-16 (eight queries, load average up to 8,
+  swap full), against 0.10 s for Hybrid, which is the default mode; the search
+  page shows a running clock and Cancel for the reranked mode. Cancel stops
+  the browser waiting, not the server: the reranking it started runs to the
+  end. An identical reranked search sent meanwhile (a reload, a retry, a
+  second tab) joins that computation instead of queueing another, and a
+  finished one is reused for five minutes. `RETRIEVE_TOP_N=20` made reranking
+  about 2.4 times faster (25.7 s median) but changed the top 10 on half the
+  queries, and its recall has not been measured, so the default stays 50
+  ([the benchmark](../evaluation/results/latency/2026-10-16-rerank-bench/README.md)).
 - **Master circulars are too large to assess whole on a CPU.** The rule
   extractor finds hundreds to over a thousand obligations in one master
   circular, and clause retrieval reranks for each; the run's wall-clock and

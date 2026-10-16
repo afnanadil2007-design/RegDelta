@@ -106,7 +106,7 @@ export default function Search() {
           <>
             <p className="text-sm text-ink-soft">
               {mode === "hybrid_rerank"
-                ? "Re-scoring candidate passages with the cross-encoder. On a CPU this can take most of a minute."
+                ? "Re-scoring candidate passages with the cross-encoder: about a minute on a laptop CPU, sometimes more. Cancel stops the wait; the server still finishes this search, and asking again picks up its result."
                 : "Searching."}
             </p>
             <Skeleton lines={6} label="results" />

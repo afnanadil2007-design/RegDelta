@@ -113,6 +113,16 @@ The `mode` parameter (`dense` | `lexical` | `hybrid` | `hybrid_rerank`) exists
 so the evaluation harness and the UI traverse **identical code**. An ablation
 measuring a parallel implementation would measure the harness, not the product.
 
+Reranking scores `RETRIEVE_TOP_N` (50) passages with the cross-encoder in a
+worker thread, one search at a time (the tokenizer is not thread-safe): about
+a minute per search on the evaluation laptop. The UI defaults to Hybrid and
+shows a clock and Cancel for the reranked mode. Cancel only stops the browser
+waiting; the thread cannot be interrupted and finishes. So the search service
+shares identical reranked searches: one already running is joined rather than
+started again behind it, and a finished one is reused for five minutes
+(`app/services/search.py`). The evaluation calls the pipeline directly and is
+never served from that cache.
+
 ### Point-in-time filtering
 
 `as_of` excludes any chunk whose circular is taken out of force by a resolved

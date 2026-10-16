@@ -1,0 +1,128 @@
+{
+  "label": "2026-10-16-rerank-bench",
+  "queries": [
+    "sem-0c86d2c5ca",
+    "sem-e4689995fd",
+    "sem-cf5fbe4b03",
+    "sem-f1572ff6cc",
+    "ident-0c86d2c5ca",
+    "ident-e4689995fd",
+    "ident-cf5fbe4b03",
+    "ident-f1572ff6cc"
+  ],
+  "timings": {
+    "reranker_load_s": 8.84,
+    "embedder_load_s": 0.21,
+    "first_rerank_after_load_s": 59.4
+  },
+  "variants": {
+    "hybrid": {
+      "mode": "hybrid",
+      "retrieve_top_n": 50,
+      "length_sorted_batches": true,
+      "n": 8,
+      "median_s": 0.1,
+      "min_s": 0.06,
+      "max_s": 0.15,
+      "hits_at_10": 6,
+      "same_top10_as_measured_config": 0,
+      "max_top_score_difference": null
+    },
+    "rerank-50-arrival": {
+      "mode": "hybrid_rerank",
+      "retrieve_top_n": 50,
+      "length_sorted_batches": false,
+      "n": 8,
+      "median_s": 62.39,
+      "min_s": 53.5,
+      "max_s": 89.43,
+      "hits_at_10": 6,
+      "same_top10_as_measured_config": 8,
+      "max_top_score_difference": 0.0
+    },
+    "rerank-50-sorted": {
+      "mode": "hybrid_rerank",
+      "retrieve_top_n": 50,
+      "length_sorted_batches": true,
+      "n": 8,
+      "median_s": 62.4,
+      "min_s": 48.65,
+      "max_s": 71.43,
+      "hits_at_10": 6,
+      "same_top10_as_measured_config": 8,
+      "max_top_score_difference": 0.0
+    },
+    "rerank-20-sorted": {
+      "mode": "hybrid_rerank",
+      "retrieve_top_n": 20,
+      "length_sorted_batches": true,
+      "n": 8,
+      "median_s": 25.73,
+      "min_s": 20.34,
+      "max_s": 41.28,
+      "hits_at_10": 6,
+      "same_top10_as_measured_config": 4,
+      "max_top_score_difference": 0.0
+    }
+  },
+  "provenance": {
+    "code": {
+      "git_sha": "b69acbe53753e2d7e7319b7ed2c816938789f7e4",
+      "evaluated_paths": [
+        "backend/app",
+        "backend/pyproject.toml",
+        "evaluation",
+        "ingestion",
+        ":(exclude)evaluation/results"
+      ],
+      "dirty": true,
+      "dirty_files": [
+        "backend/app/ai/retrieval/reranker.py",
+        "evaluation/bench_rerank.py"
+      ],
+      "dirty_digest": "32762936ff198fd7f9844b38f96209e47cef89cdcd29d9631dac288c03ab2faa"
+    },
+    "database": "regdelta_demo",
+    "models": {
+      "embedding": [
+        "BAAI/bge-small-en-v1.5",
+        "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a"
+      ],
+      "reranker": [
+        "BAAI/bge-reranker-base",
+        "2cfc18c9415c912f9d8155881c133215df768a70"
+      ]
+    },
+    "machine": {
+      "cpu": "Intel(R) Core(TM) i5-5300U CPU @ 2.30GHz",
+      "logical_cpus": 4,
+      "memory_gib": 7.6,
+      "os": "Linux 6.14.0-37-generic",
+      "python": "3.11.16",
+      "torch": "2.14.1+cpu",
+      "torch_threads": 4,
+      "sentence_transformers": "3.4.1"
+    },
+    "load_before": {
+      "loadavg_1_5_15": [
+        2.3173828125,
+        3.36376953125,
+        3.9248046875
+      ],
+      "mem_available_gib": 3.21,
+      "swap_used_gib": 2.0,
+      "running_containers": 14
+    },
+    "load_after": {
+      "loadavg_1_5_15": [
+        8.38427734375,
+        7.2919921875,
+        5.9814453125
+      ],
+      "mem_available_gib": 1.69,
+      "swap_used_gib": 1.99,
+      "running_containers": 14
+    },
+    "timing": "wall clock around run_eval.run_query, one process, models loaded before timing"
+  }
+}

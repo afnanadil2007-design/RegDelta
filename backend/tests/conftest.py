@@ -53,6 +53,15 @@ def _clear_settings_cache() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _forget_shared_searches() -> None:
+    """Reranked results are shared and reused for minutes; never across tests."""
+    from app.services import search
+
+    search._running.clear()
+    search._finished.clear()
+
+
+@pytest.fixture(autouse=True)
 def _reset_sse_exit_event() -> None:
     """sse-starlette keeps one process-wide exit event bound to the first loop.
 

@@ -8,16 +8,40 @@ caller needs to render them.
 
 from __future__ import annotations
 
+import asyncio
 import time
-from dataclasses import dataclass
+from collections import OrderedDict
+from dataclasses import astuple, dataclass
 from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.retrieval.pipeline import SCORE_KIND, RetrievedChunk, ScoreKind, retrieve
+from app.ai.retrieval.pipeline import (
+    SCORE_KIND,
+    RetrievalResult,
+    RetrievedChunk,
+    ScoreKind,
+    retrieve,
+)
+from app.core.logging import get_logger
 from app.db.models.enums import RetrievalMode
+from app.db.session import get_sessionmaker
 from app.repositories.circulars import ChunkRepository, CircularRepository
 from app.repositories.search import SearchFilters
+
+log = get_logger("app.services.search")
+
+# Identical reranked searches share one computation. Reranking takes tens of
+# seconds on a CPU and runs in a worker thread that a closed browser request
+# cannot stop, and inference is serialised; so a reload, a retry after
+# Cancel, or a second tab would otherwise start the same work again and queue
+# it behind the first. A search already running is joined; a finished one is
+# reused for a few minutes. Other modes take milliseconds and are not shared.
+SHARED_TTL_SECONDS = 300.0
+SHARED_MAX_ENTRIES = 32
+_SharedKey = tuple[object, ...]
+_running: dict[_SharedKey, asyncio.Task[RetrievalResult]] = {}
+_finished: OrderedDict[_SharedKey, tuple[float, RetrievalResult]] = OrderedDict()
 
 
 @dataclass
@@ -49,6 +73,44 @@ class SearchOutcome:
     elapsed_ms: int
 
 
+async def _retrieve_alone(
+    query: str, mode: RetrievalMode, filters: SearchFilters, top_k: int | None
+) -> RetrievalResult:
+    # Its own session: the requests that wait on it may end before it does.
+    async with get_sessionmaker()() as session:
+        return await retrieve(session, query, mode=mode, filters=filters, top_k=top_k)
+
+
+async def shared_rerank(
+    query: str, mode: RetrievalMode, filters: SearchFilters, top_k: int | None
+) -> tuple[RetrievalResult, str]:
+    """The reranked result for this request, and whether it was computed,
+    joined (an identical search was running) or reused (one finished recently)."""
+    key: _SharedKey = (query, mode, astuple(filters), top_k)
+    loop = asyncio.get_running_loop()
+    hit = _finished.get(key)
+    if hit is not None and loop.time() - hit[0] < SHARED_TTL_SECONDS:
+        _finished.move_to_end(key)
+        return hit[1], "reused"
+    task = _running.get(key)
+    how = "joined"
+    if task is None:
+        how = "computed"
+        task = asyncio.create_task(_retrieve_alone(query, mode, filters, top_k))
+        _running[key] = task
+
+        def finished(done: asyncio.Task[RetrievalResult]) -> None:
+            _running.pop(key, None)
+            if not done.cancelled() and done.exception() is None:
+                _finished[key] = (loop.time(), done.result())
+                while len(_finished) > SHARED_MAX_ENTRIES:
+                    _finished.popitem(last=False)
+
+        task.add_done_callback(finished)
+    # Shielded: a request that goes away does not cancel the shared work.
+    return await asyncio.shield(task), how
+
+
 async def search(
     session: AsyncSession,
     query: str,
@@ -59,7 +121,11 @@ async def search(
 ) -> SearchOutcome:
     """Retrieve, then attach circular metadata in a single follow-up query."""
     started = time.perf_counter()
-    result = await retrieve(session, query, mode=mode, filters=filters, top_k=top_k)
+    if mode is RetrievalMode.HYBRID_RERANK:
+        result, how = await shared_rerank(query, mode, filters, top_k)
+        log.info("search.rerank", extra={"served": how})
+    else:
+        result = await retrieve(session, query, mode=mode, filters=filters, top_k=top_k)
 
     # The temporal banner names circulars, not chunks.
     excluded_chunks = await ChunkRepository(session).get_many(result.excluded_by_temporal_filter)
