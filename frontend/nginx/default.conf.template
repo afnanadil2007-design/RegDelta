@@ -16,6 +16,7 @@ server {
     # container starts, and answers /api with an error the app can explain,
     # even while the API container is down or restarting.
     resolver 127.0.0.11 valid=10s ipv6=off;
+    resolver_timeout 3s;
     set $api http://${REGDELTA_API_UPSTREAM};
 
     gzip on;
@@ -30,7 +31,12 @@ server {
     }
     location @api_timeout {
         default_type application/json;
-        return 504 '{"error":{"code":"api_timeout","message":"The RegDelta API did not answer within 5 minutes. A reranked search can take minutes on a CPU; try again, or use Hybrid.","detail":null}}';
+        # No connection was ever made (a stopped container whose address is
+        # still cached): that is an unreachable API, not a slow one.
+        if ($upstream_connect_time = "-") {
+            return 502 '{"error":{"code":"api_unreachable","message":"The web server could not reach the RegDelta API. Check that the api container is running, then try again.","detail":null}}';
+        }
+        return 504 '{"error":{"code":"api_timeout","message":"The RegDelta API accepted the request but did not answer within 5 minutes. A reranked search can take minutes on a CPU; try again, or use Hybrid.","detail":null}}';
     }
 
     location = /api {
@@ -46,6 +52,9 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header Connection "";
+        # Connecting on the compose network is immediate; waiting nginx's
+        # default 60 s for a stopped container would only delay the answer.
+        proxy_connect_timeout 3s;
         # A reranked search measured p95 117 s on the evaluation laptop;
         # nginx's 60 s default would cut it off.
         proxy_read_timeout 300s;
@@ -65,6 +74,7 @@ server {
         proxy_set_header Connection "";
         proxy_buffering off;
         proxy_cache off;
+        proxy_connect_timeout 3s;
         proxy_read_timeout 1h;
         error_page 502 503 = @api_unreachable;
         error_page 504 = @api_timeout;
