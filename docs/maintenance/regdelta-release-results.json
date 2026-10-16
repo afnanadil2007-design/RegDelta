@@ -1,6 +1,6 @@
 {
   "note": "Results recorded from the logs named in each row (paths under review-evidence/ in the package, .artifacts/r2/ locally). 'revision' is the commit the check ran on. Earlier failing runs are kept as rows of their own.",
-  "code_revision": "bd1e82d (tested); 73f680c adds only scripts/package_review.py",
+  "code_revision": "bd1e82d (tested); 7602abd adds only scripts/package_review.py",
   "native_final_revision": "207f466 (differs from bd1e82d only in frontend/nginx/default.conf.template, which no native check uses)",
   "checks": [
     {

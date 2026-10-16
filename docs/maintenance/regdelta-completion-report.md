@@ -28,10 +28,10 @@ human decision. Outstanding, and not reported as passed:
 
 - `repair/regdelta-cleanup`, local only. Commits since the previous review
   revision `0dc9437`: see §8. **Tested application revision `bd1e82d`.**
-  The package manifest's code revision is `73f680c`, the last commit outside
+  The package manifest's code revision is `7602abd`, the last commit outside
   `docs/maintenance` and `docs/screenshots`; it differs from `bd1e82d` only
-  in `scripts/package_review.py` (what goes into the ZIP). The commit after
-  it records evidence only.
+  in `scripts/package_review.py` (what goes into the ZIP and how it is
+  scanned). The commit after it records evidence only.
 - Native final pass on `207f466` (it differs from `bd1e82d` only in
   `frontend/nginx/default.conf.template`, which no native check uses);
   container final pass on `bd1e82d`.
@@ -114,7 +114,7 @@ the human reviews, a demo recording.
   docs/maintenance/regdelta-release-results.json --out
   ../RegDelta-review-v2.zip`. It holds `git archive HEAD` plus
   `review-evidence/` (redacted logs, audits, container results and images,
-  the diff `0dc9437..73f680c`, the commit list, and `MANIFEST.json` with
+  the diff `0dc9437..7602abd`, the commit list, and `MANIFEST.json` with
   UTC time, revisions, tool versions, the results table and a SHA-256 per
   entry). The ZIP's own size and SHA-256 cannot be inside it; they are in
   `RegDelta-review-v2.zip.sha256` beside it.
