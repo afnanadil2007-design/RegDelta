@@ -307,6 +307,20 @@ def write_pdf(circular: GeneratedCircular, directory: Path) -> Path:
     return path
 
 
+def remove_stale(directory: Path, keep: set[str]) -> list[str]:
+    """Delete PDFs in the generator's output directory that this run did not write.
+
+    Ingestion takes every PDF in the directory, so leftovers from an earlier,
+    larger run (a 300-circular demo before a 60-circular CI corpus) would be
+    ingested beside the new corpus with no manifest entry, changing the gold
+    set. The directory holds generated files only and is git-ignored.
+    """
+    removed = sorted(p.name for p in directory.glob("*.pdf") if p.name not in keep)
+    for name in removed:
+        (directory / name).unlink()
+    return removed
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--count", type=int, default=300)
@@ -332,8 +346,11 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
     write_manifest(entries, paths.manifest)
+    removed = remove_stale(paths.pdf_dir, {entry.pdf_filename for entry in entries})
 
     print(f"Generated {len(entries)} SYNTHETIC circulars in {paths.pdf_dir}")
+    if removed:
+        print(f"Removed {len(removed)} PDFs left by an earlier, different generation.")
     print(f"Manifest: {paths.manifest}")
     print("These are NOT real SEBI circulars — see the module docstring.")
     return 0
