@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 
+import { Ident } from "@/components/lexicon";
 import { toRuns, type Block } from "@/lib/prose";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +12,19 @@ export const MARK_CLASS: Record<string, string> = {
 };
 
 const EVIDENCE = new Set(["quote", "obligation"]);
+
+/** A slash-joined identifier such as a circular number: three or more slashes. */
+const IDENTIFIER = /(\S+(?:\/\S+){3,})/;
+
+/**
+ * Text whose identifiers may wrap after a slash, as titles do, instead of
+ * mid-segment ("…/CIR/202" + "4/306") on a phone. Only break opportunities
+ * are added, so the text and its offsets are unchanged.
+ */
+function breakable(text: string): ReactNode {
+  if (!text.includes("/")) return text;
+  return text.split(IDENTIFIER).map((piece, i) => (i % 2 === 1 ? <Ident key={i} value={piece} /> : piece));
+}
 
 /**
  * Source text as reading blocks, with evidence marks kept at their offsets.
@@ -31,12 +45,13 @@ export function Prose({
     <div className={cn("flex flex-col gap-2", className)}>
       {blocks.map((block, index) => {
         const content = toRuns(block.parts).map((run, i) => {
+          const text = breakable(run.text);
           const body = run.code ? (
-            <span className="font-sans text-[0.92em] font-semibold">{run.text}</span>
+            <span className="font-sans text-[0.92em] font-semibold">{text}</span>
           ) : run.bold ? (
-            <strong>{run.text}</strong>
+            <strong>{text}</strong>
           ) : (
-            run.text
+            text
           );
           if (!run.spanId) return <span key={i}>{body}</span>;
           const Tag = run.spanId === "obligation" ? "span" : "mark";
