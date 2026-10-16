@@ -13,9 +13,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, ValidationError
+from pydantic import Field, SecretStr, ValidationError, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
+
+from app.core.model_sources import APPROVED, Role, unapproved
 
 # "deterministic" is a rule-based stand-in behind the same gateway interface:
 # no network, no key, no cost, same output for the same input. It exists for
@@ -78,12 +80,13 @@ class Settings(BaseSettings):
     # --- Embeddings / reranker ---
     # Pinned to the Hugging Face commits every evaluation was measured with, so
     # a fresh download (a new container, CI) loads the same weights, and a
-    # later upstream revision is never picked up unreviewed.
-    embedding_model: str = "BAAI/bge-small-en-v1.5"
-    embedding_model_revision: str = "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a"
+    # later upstream revision is never picked up unreviewed. Only these are
+    # accepted (app.core.model_sources says why).
+    embedding_model: str = APPROVED["embedding"][0]
+    embedding_model_revision: str = APPROVED["embedding"][1]
     embedding_dim: int = 384
-    reranker_model: str = "BAAI/bge-reranker-base"
-    reranker_model_revision: str = "2cfc18c9415c912f9d8155881c133215df768a70"
+    reranker_model: str = APPROVED["reranker"][0]
+    reranker_model_revision: str = APPROVED["reranker"][1]
 
     # --- Retrieval pipeline ---
     # Load the embedding + reranker models once at API startup (in the
@@ -131,6 +134,15 @@ class Settings(BaseSettings):
     scrape_delay_seconds: float = Field(2.0, ge=0)
     text_quality_threshold: float = Field(0.15, ge=0.0, le=1.0)
     vision_dpi: int = Field(200, ge=50, le=600)
+
+    @field_validator("embedding_model_revision", "reranker_model_revision")
+    @classmethod
+    def _approved_model(cls, revision: str, info: ValidationInfo) -> str:
+        role: Role = "embedding" if info.field_name == "embedding_model_revision" else "reranker"
+        model = info.data.get(f"{role}_model")
+        if model is not None and (reason := unapproved(role, model, revision)):
+            raise ValueError(reason)
+        return revision
 
     def database_target(self) -> URL:
         """The one database the app, migrations, checks and tools connect to.

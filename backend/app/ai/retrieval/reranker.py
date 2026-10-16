@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.core.model_sources import checked_source
 
 if TYPE_CHECKING:
     from sentence_transformers import CrossEncoder
@@ -80,8 +81,12 @@ def get_reranker() -> CrossEncoder:
                     },
                 )
                 _reranker = CrossEncoder(
-                    settings.reranker_model,
+                    # Checked again here, just before loading (model_sources).
+                    checked_source(
+                        "reranker", settings.reranker_model, settings.reranker_model_revision
+                    ),
                     revision=settings.reranker_model_revision,
+                    trust_remote_code=False,
                     device="cpu",
                     max_length=_MAX_LENGTH,
                 )
