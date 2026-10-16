@@ -26,6 +26,9 @@ from evaluation import provider_smoke
 from evaluation.provider_smoke import EXIT, Fixture, Outcome
 from tests.test_database_guards import _admin, _drop, _run, _scratch_name, _sql
 
+# A made-up key in the shape of none: it must never be sent or printed.
+FAKE_KEY = "gsk-placeholder-never-sent"
+
 
 @pytest.fixture(autouse=True)
 def _no_network(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -96,7 +99,7 @@ def test_the_smoke_limits_must_be_in_effect(monkeypatch: pytest.MonkeyPatch) -> 
 def _ready_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("REGDELTA_ALLOW_PAID_CALLS", "1")
     monkeypatch.setenv("LLM_PROVIDER", "groq")
-    monkeypatch.setenv("GROQ_API_KEY", "gsk-placeholder-never-sent")
+    monkeypatch.setenv("GROQ_API_KEY", FAKE_KEY)
 
 
 # --- preflight: the target must be the seeded synthetic database -------------------------
@@ -200,7 +203,7 @@ def test_an_unrelated_postgres_db_cannot_satisfy_the_smoke_run(
     assert provider_smoke.main([]) == EXIT["REFUSED"]
     out = capsys.readouterr().out
     assert f"/{migrated_scratch} holds no synthetic circular" in out
-    assert "gsk-placeholder-never-sent" not in out
+    assert FAKE_KEY not in out
 
 
 def _never_called(*_: object, **__: object) -> None:
@@ -226,7 +229,7 @@ def _settings() -> Settings:
         _env_file=None,
         llm_provider="groq",
         llm_model="openai/gpt-oss-20b",
-        groq_api_key="gsk-placeholder-never-sent",
+        groq_api_key=FAKE_KEY,
         max_assessment_calls=12,
         max_assessment_tokens=20_000,
         assessment_timeout_seconds=300,
@@ -590,4 +593,4 @@ def test_printed_output_never_holds_a_secret(capsys: pytest.CaptureFixture[str])
         settings,
     )
     out = capsys.readouterr().out
-    assert "gsk-placeholder-never-sent" not in out and "***" in out
+    assert FAKE_KEY not in out and "***" in out

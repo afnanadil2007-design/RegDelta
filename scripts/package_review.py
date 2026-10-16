@@ -1,20 +1,21 @@
 """Build the review ZIP: the committed source plus selected, sanitised evidence.
 
-    python3 scripts/package_review.py --previous 0dc9437 \\
-        --results docs/maintenance/regdelta-release-results.json \\
-        --out ../RegDelta-review-v2.zip
+    python3 scripts/package_review.py --previous bd10a94 \\
+        --results docs/maintenance/regdelta-correction-results.json \\
+        --out ../RegDelta-review-v3.zip
 
 What goes in, under ``RegDelta/``:
 
 * ``git archive HEAD``: exactly the committed tree (no .git, no ignored or
   untracked files, so no .env, virtual environments, node_modules, caches,
   model weights or databases);
-* ``review-evidence/``: the files listed in ``EVIDENCE`` that exist, copied
-  from the git-ignored ``.artifacts/r2/`` with local paths and anything
-  shaped like a credential redacted; a diff and commit list against the
-  previous review revision; and ``MANIFEST.json`` (UTC time, code and head
-  revisions, tool versions, the recorded results table, a SHA-256 for
-  every entry, and the redaction counts).
+* ``review-evidence/``: the files matching ``EVIDENCE_GLOBS`` in each
+  git-ignored evidence root (``.artifacts/r2/`` for the release repair, at
+  the top; ``.artifacts/c/`` for the correction pass, under ``c/``), with
+  local paths and anything shaped like a credential redacted; a diff and
+  commit list against the previous review revision; and ``MANIFEST.json``
+  (UTC time, code and head revisions, tool versions, the recorded results
+  table, a SHA-256 for every entry, and the redaction counts).
 
 It refuses to write the archive when an entry looks like something that must
 not ship (a real .env, a key file, a virtualenv, node_modules, a database
@@ -38,7 +39,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ARTIFACTS = ROOT / ".artifacts" / "r2"
+# (directory, prefix under review-evidence/)
+EVIDENCE_ROOTS = ((ROOT / ".artifacts" / "r2", ""), (ROOT / ".artifacts" / "c", "c/"))
 PREFIX = "RegDelta/"
 # Paths whose commits are evidence about the code, not code: the code
 # revision is the last commit that touched anything else.
@@ -52,6 +54,11 @@ EVIDENCE_GLOBS = (
     "container*/*.json",
     "screenshots/*.yml",
     "screenshots/*.log",
+    "logs/**/*.diff",
+    "logs/**/*.diffstat",
+    "resolver/*.txt",
+    "resolver/*.json",
+    "*.sh",
 )
 BINARY_GLOBS = ("container*/*.png", "screenshots/*.png")
 
@@ -157,17 +164,18 @@ def main(argv: list[str]) -> int:
                 entries[PREFIX + member.name] = handle.read()
 
     redacted: dict[str, int] = {}
-    for pattern in EVIDENCE_GLOBS:
-        for path in sorted(ARTIFACTS.glob(pattern)):
-            text, n = sanitise(path.read_text(encoding="utf-8", errors="replace"))
-            name = f"{PREFIX}review-evidence/{path.relative_to(ARTIFACTS)}"
-            entries[name] = text.encode("utf-8")
-            if n:
-                redacted[name] = n
-
-    for pattern in BINARY_GLOBS:
-        for path in sorted(ARTIFACTS.glob(pattern)):
-            entries[f"{PREFIX}review-evidence/{path.relative_to(ARTIFACTS)}"] = path.read_bytes()
+    for directory, under in EVIDENCE_ROOTS:
+        evidence = f"{PREFIX}review-evidence/{under}"
+        for pattern in EVIDENCE_GLOBS:
+            for path in sorted(directory.glob(pattern)):
+                text, n = sanitise(path.read_text(encoding="utf-8", errors="replace"))
+                name = f"{evidence}{path.relative_to(directory)}"
+                entries[name] = text.encode("utf-8")
+                if n:
+                    redacted[name] = n
+        for pattern in BINARY_GLOBS:
+            for path in sorted(directory.glob(pattern)):
+                entries[f"{evidence}{path.relative_to(directory)}"] = path.read_bytes()
 
     previous = args.previous
     entries[f"{PREFIX}review-evidence/diff-{previous}..{code[:7]}.patch"] = git(
