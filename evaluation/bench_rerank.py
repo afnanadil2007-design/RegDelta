@@ -173,11 +173,15 @@ async def bench(label: str) -> int:
         "models": {
             "embedding": [
                 get_settings().embedding_model,
-                model_revision(get_settings().embedding_model),
+                model_revision(
+                    get_settings().embedding_model, get_settings().embedding_model_revision
+                ),
             ],
             "reranker": [
                 get_settings().reranker_model,
-                model_revision(get_settings().reranker_model),
+                model_revision(
+                    get_settings().reranker_model, get_settings().reranker_model_revision
+                ),
             ],
         },
         "machine": machine(),

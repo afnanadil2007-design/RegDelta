@@ -61,9 +61,14 @@ class Settings(BaseSettings):
     database_pool: Literal["queue", "null"] = "queue"
 
     # --- Embeddings / reranker ---
+    # Pinned to the Hugging Face commits every evaluation was measured with, so
+    # a fresh download (a new container, CI) loads the same weights, and a
+    # later upstream revision is never picked up unreviewed.
     embedding_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_model_revision: str = "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a"
     embedding_dim: int = 384
     reranker_model: str = "BAAI/bge-reranker-base"
+    reranker_model_revision: str = "2cfc18c9415c912f9d8155881c133215df768a70"
 
     # --- Retrieval pipeline ---
     # Load the embedding + reranker models once at API startup (in the

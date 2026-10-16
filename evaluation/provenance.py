@@ -61,12 +61,12 @@ def code_identity(paths: tuple[str, ...] = EVALUATED_PATHS) -> dict[str, Any]:
     return identity
 
 
-def model_revision(repo_id: str) -> str | None:
-    """The Hugging Face commit of the locally cached model, if it is cached."""
+def model_revision(repo_id: str, revision: str | None = None) -> str | None:
+    """The Hugging Face commit actually on disk for the model (and revision), or None."""
     try:
         from huggingface_hub import snapshot_download
 
-        return Path(snapshot_download(repo_id, local_files_only=True)).name
+        return Path(snapshot_download(repo_id, revision=revision, local_files_only=True)).name
     except Exception:  # noqa: BLE001 - absence is reported as None, not raised
         return None
 

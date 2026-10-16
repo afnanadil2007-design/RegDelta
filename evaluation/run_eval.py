@@ -267,11 +267,15 @@ def provenance(
         "models": {
             "embedding": {
                 "id": settings.embedding_model,
-                "revision": model_revision(settings.embedding_model),
+                "revision": model_revision(
+                    settings.embedding_model, settings.embedding_model_revision
+                ),
             },
             "reranker": {
                 "id": settings.reranker_model,
-                "revision": model_revision(settings.reranker_model),
+                "revision": model_revision(
+                    settings.reranker_model, settings.reranker_model_revision
+                ),
                 "activation": "sigmoid over the single logit (scores in 0..1, uncalibrated)",
             },
         },

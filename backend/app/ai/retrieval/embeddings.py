@@ -67,8 +67,18 @@ def get_model() -> SentenceTransformer:
 
                 configure_torch_threads()
                 settings = get_settings()
-                log.info("embeddings.loading", extra={"model": settings.embedding_model})
-                _model = SentenceTransformer(settings.embedding_model, device="cpu")
+                log.info(
+                    "embeddings.loading",
+                    extra={
+                        "model": settings.embedding_model,
+                        "revision": settings.embedding_model_revision,
+                    },
+                )
+                _model = SentenceTransformer(
+                    settings.embedding_model,
+                    revision=settings.embedding_model_revision,
+                    device="cpu",
+                )
     return _model
 
 

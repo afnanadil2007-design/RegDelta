@@ -72,9 +72,18 @@ def get_reranker() -> CrossEncoder:
 
                 configure_torch_threads()
                 settings = get_settings()
-                log.info("reranker.loading", extra={"model": settings.reranker_model})
+                log.info(
+                    "reranker.loading",
+                    extra={
+                        "model": settings.reranker_model,
+                        "revision": settings.reranker_model_revision,
+                    },
+                )
                 _reranker = CrossEncoder(
-                    settings.reranker_model, device="cpu", max_length=_MAX_LENGTH
+                    settings.reranker_model,
+                    revision=settings.reranker_model_revision,
+                    device="cpu",
+                    max_length=_MAX_LENGTH,
                 )
     return _reranker
 
