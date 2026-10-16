@@ -15,6 +15,7 @@ from typing import Literal
 
 from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import URL
 
 # "deterministic" is a rule-based stand-in behind the same gateway interface:
 # no network, no key, no cost, same output for the same input. It exists for
@@ -29,6 +30,18 @@ DETERMINISTIC_MODEL = "regdelta-rules-v1"
 # Later entries win, so a backend-local override is still possible.
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _ENV_FILES = (_REPO_ROOT / ".env", Path(".env"))
+
+# The server's own databases: the administrative connection uses "postgres",
+# and none of them may be RegDelta's application database.
+ADMIN_DATABASE = "postgres"
+_SERVER_DATABASES = frozenset({ADMIN_DATABASE, "template0", "template1"})
+
+
+class DatabaseConfigError(RuntimeError):
+    """The database settings do not name one usable database.
+
+    Messages name variables and never include a password or DATABASE_URL.
+    """
 
 
 class Settings(BaseSettings):
@@ -49,12 +62,14 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
 
     # --- Database ---
+    # The only database settings; see database_target().
     postgres_user: str = "regdelta"
-    postgres_password: str = "regdelta"
+    postgres_password: SecretStr = SecretStr("regdelta")
     postgres_db: str = "regdelta"
     postgres_host: str = "localhost"
-    postgres_port: int = 5432
-    database_url: str | None = None
+    postgres_port: int = Field(5432, ge=1, le=65535)
+    # Read only so that a value left in the environment is refused, not used.
+    database_url: SecretStr | None = None
     # "null" opens a fresh connection per checkout instead of pooling. Needed
     # when one process drives several event loops (the test suite does), since
     # an async connection must not be reused across loops.
@@ -117,14 +132,41 @@ class Settings(BaseSettings):
     text_quality_threshold: float = Field(0.15, ge=0.0, le=1.0)
     vision_dpi: int = Field(200, ge=50, le=600)
 
-    @property
-    def sqlalchemy_url(self) -> str:
-        """Async SQLAlchemy URL, assembled from parts unless overridden."""
-        if self.database_url:
-            return self.database_url
-        return (
-            f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}"
-            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+    def database_target(self) -> URL:
+        """The one database the app, migrations, checks and tools connect to.
+
+        Built from the POSTGRES_* settings with ``URL.create``, so reserved
+        characters in a user or password keep their meaning; no URL string is
+        parsed or assembled. A non-empty DATABASE_URL is refused, not
+        preferred: when it was preferred, the safety checks (which read
+        POSTGRES_*) and the migrations could reach different databases.
+        Raises DatabaseConfigError before any connection is made.
+        """
+        if self.database_url is not None and self.database_url.get_secret_value().strip():
+            raise DatabaseConfigError(
+                "DATABASE_URL is set (value not shown) but is not supported: RegDelta reads "
+                "its database only from POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, "
+                "POSTGRES_PASSWORD and POSTGRES_DB. Unset DATABASE_URL."
+            )
+        for variable, value in (
+            ("POSTGRES_HOST", self.postgres_host),
+            ("POSTGRES_USER", self.postgres_user),
+            ("POSTGRES_DB", self.postgres_db),
+        ):
+            if not value.strip():
+                raise DatabaseConfigError(f"{variable} is empty.")
+        if self.postgres_db in _SERVER_DATABASES:
+            raise DatabaseConfigError(
+                f"POSTGRES_DB={self.postgres_db} is one of the server's own databases; "
+                "name a database for RegDelta."
+            )
+        return URL.create(
+            "postgresql+psycopg",
+            username=self.postgres_user,
+            password=self.postgres_password.get_secret_value() or None,
+            host=self.postgres_host,
+            port=self.postgres_port,
+            database=self.postgres_db,
         )
 
     @property
@@ -153,6 +195,19 @@ class Settings(BaseSettings):
                 "Set it in .env, or use LLM_PROVIDER=deterministic for the offline demo."
             )
         return True, None
+
+
+def describe_database(url: URL) -> str:
+    """``user@host:port/name``: how every tool names its database; no password."""
+    return f"{url.username}@{url.host}:{url.port}/{url.database}"
+
+
+def psycopg_args(url: URL, database: str | None = None) -> dict[str, object]:
+    """``psycopg.connect`` keywords for ``url``, or for another database on its server."""
+    args = url.translate_connect_args(username="user", database="dbname")
+    if database is not None:
+        args["dbname"] = database
+    return args
 
 
 @lru_cache

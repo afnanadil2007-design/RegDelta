@@ -69,8 +69,3 @@ def test_out_of_range_limits_fail_at_startup(overrides: dict) -> None:
 def test_api_binds_to_loopback_by_default() -> None:
     """No auth plus metered model calls: never listen on every interface by default."""
     assert _settings().api_host == "127.0.0.1"
-
-
-def test_database_url_override_wins() -> None:
-    url = "postgresql+psycopg://u:p@db.example:5432/x_test"
-    assert _settings(database_url=url).sqlalchemy_url == url

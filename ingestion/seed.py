@@ -20,7 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from app.core.config import get_settings
+from app.core.config import DatabaseConfigError, get_settings
 from app.core.logging import bind_run_id, configure_logging
 from app.db.session import get_engine, get_sessionmaker
 from app.services.policy_pack import index_pack
@@ -85,10 +85,15 @@ def main(argv: list[str] | None = None) -> int:
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-    print(f"seeding {target()}", flush=True)
+    try:
+        name = target()
+    except DatabaseConfigError as exc:
+        print(f"REFUSED: {exc}")
+        return 1
+    print(f"seeding {name}", flush=True)
     if outside := asyncio.run(non_synthetic_circulars()):
         print(
-            f"REFUSED: {target()} holds {outside} circular(s) that are not from the synthetic "
+            f"REFUSED: {name} holds {outside} circular(s) that are not from the synthetic "
             "corpus. Seed a separate database instead, e.g. POSTGRES_DB=regdelta_demo make db seed."
         )
         return 1

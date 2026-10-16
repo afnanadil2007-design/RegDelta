@@ -95,10 +95,17 @@ only when asked for:
 REGDELTA_ALLOW_PAID_CALLS=1 POSTGRES_DB=regdelta_demo make provider-smoke
 ```
 
-It assesses the synthetic circular with the fewest obligations, capped at 12
-provider calls, 20,000 tokens and 300 s, one call at a time. It prints the
-run, status, provider and model, tokens and the cost estimate (or why it is
-unknown), and adds the findings to the semantic-support candidates as
+It first prints the database it will use and refuses (exit 2) unless that
+database is seeded and synthetic, then assesses the synthetic circular with
+the fewest obligations, capped at 12 provider calls, 20,000 tokens and 300 s,
+one call at a time. Run it while no API is serving that database. It prints
+the run, status, provider and model, calls, tokens and the cost estimate (or
+why it is unknown), and ends with one line, `SMOKE <OUTCOME>: <reason>`.
+Only `SMOKE PASSED` (exit 0) counts: a completed run by that provider, within
+the caps, with a finding for every obligation, no failed task and a memo.
+FAILED, CAPPED, INCOMPLETE, MALFORMED, TRANSPORT, INVALID and EXPORT_FAILED
+each have their own exit code (`evaluation/provider_smoke.py` lists them).
+After a pass it adds the findings to the semantic-support candidates as
 real-model output (`evaluation/datasets/support/`). Then open the run in the
 workspace: the plate names the model, scores read "model-stated,
 uncalibrated", and the memo must not call any finding verified.

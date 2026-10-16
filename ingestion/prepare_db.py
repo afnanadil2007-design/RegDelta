@@ -1,16 +1,20 @@
 """Create the configured database if it is missing, then migrate it to head.
 
-The database name comes from the usual settings (``POSTGRES_DB``), so the
-same command prepares the demo, test and end-to-end databases:
+The database is the one ``Settings.database_target()`` names (the POSTGRES_*
+settings; a DATABASE_URL is refused), so the same command prepares the demo,
+test and end-to-end databases:
 
     python -m ingestion.prepare_db
     POSTGRES_DB=regdelta_test python -m ingestion.prepare_db
 
-It prints the target (user, host, port and name; never the password) and
-refuses to migrate a database that already holds tables without RegDelta's
-migration history, or with a revision this checkout does not know: those
-belong to something else, and migrating them would write RegDelta's schema
-into it.
+It resolves that target once and uses it for every step: creating the
+database (over an administrative connection to the server's ``postgres``
+database), the safety check, and the migration. It prints the target (user,
+host, port and name; never the password) and refuses to migrate a database
+that already holds tables without RegDelta's migration history, tables in a
+schema other than the one migrations write to, or a revision this checkout
+does not know: those belong to something else, and migrating them would write
+RegDelta's schema into it.
 """
 
 from __future__ import annotations
@@ -20,39 +24,36 @@ from pathlib import Path
 
 import psycopg
 from psycopg import sql
+from sqlalchemy.engine import URL
 
-from app.core.config import get_settings
+from app.core.config import (
+    ADMIN_DATABASE,
+    DatabaseConfigError,
+    describe_database,
+    get_settings,
+    psycopg_args,
+)
 
 BACKEND = Path(__file__).resolve().parents[1] / "backend"
 
 
 def target() -> str:
-    s = get_settings()
-    return f"{s.postgres_user}@{s.postgres_host}:{s.postgres_port}/{s.postgres_db}"
+    return describe_database(get_settings().database_target())
 
 
-def _connect(dbname: str) -> psycopg.Connection:
-    s = get_settings()
-    return psycopg.connect(
-        host=s.postgres_host,
-        port=s.postgres_port,
-        user=s.postgres_user,
-        password=s.postgres_password,
-        dbname=dbname,
-        autocommit=True,
-    )
+def _connect(url: URL, database: str | None = None) -> psycopg.Connection:
+    return psycopg.connect(**psycopg_args(url, database), autocommit=True)
 
 
-def ensure_database() -> bool:
+def ensure_database(url: URL) -> bool:
     """Create the database when absent; True if it was created."""
-    name = get_settings().postgres_db
-    with _connect("postgres") as connection:
+    with _connect(url, ADMIN_DATABASE) as connection:
         exists = connection.execute(
-            "SELECT 1 FROM pg_database WHERE datname = %s", (name,)
+            "SELECT 1 FROM pg_database WHERE datname = %s", (url.database,)
         ).fetchone()
         if exists:
             return False
-        connection.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+        connection.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(url.database)))
         return True
 
 
@@ -62,15 +63,20 @@ def known_revisions() -> set[str]:
     return {s.revision for s in ScriptDirectory(str(BACKEND / "alembic")).walk_revisions()}
 
 
-def foreign_content() -> str | None:
+def foreign_content(url: URL) -> str | None:
     """Why the existing database is not RegDelta's to migrate, or None."""
-    with _connect(get_settings().postgres_db) as connection:
-        tables = [
-            row[0]
-            for row in connection.execute(
-                "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
-            ).fetchall()
-        ]
+    with _connect(url) as connection:
+        # Migrations write to the first schema on the search path.
+        schema = connection.execute("SELECT current_schema()").fetchone()[0]
+        rows = connection.execute(
+            "SELECT schemaname, tablename FROM pg_tables WHERE schemaname <> 'information_schema'"
+            " AND schemaname NOT LIKE 'pg\\_%' ORDER BY 1, 2"
+        ).fetchall()
+        elsewhere = [f"{s}.{t}" for s, t in rows if s != schema]
+        tables = [t for s, t in rows if s == schema]
+        if elsewhere:
+            listed = ", ".join(elsewhere[:5]) + (", ..." if len(elsewhere) > 5 else "")
+            return f"it holds {len(elsewhere)} tables outside schema {schema} ({listed})"
         if not tables:
             return None
         if "alembic_version" not in tables:
@@ -85,26 +91,34 @@ def foreign_content() -> str | None:
     return None
 
 
-def migrate() -> None:
+def migrate(url: URL) -> None:
     from alembic import command
     from alembic.config import Config
 
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
+    # The database just checked, not a second resolution of the settings.
+    config.attributes["database_target"] = url
     command.upgrade(config, "head")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Create (if needed) and migrate the database.")
     parser.parse_args(argv)
-    created = ensure_database()
-    print(f"database {target()}: {'created' if created else 'exists'}")
-    if not created and (reason := foreign_content()):
-        print(f"REFUSED: not migrating {target()}: {reason}.")
+    try:
+        url = get_settings().database_target()
+    except DatabaseConfigError as exc:
+        print(f"REFUSED: {exc}")
+        return 1
+    name = describe_database(url)
+    created = ensure_database(url)
+    print(f"database {name}: {'created' if created else 'exists'}")
+    if not created and (reason := foreign_content(url)):
+        print(f"REFUSED: not migrating {name}: {reason}.")
         print("Point POSTGRES_DB (or POSTGRES_HOST/PORT) at a RegDelta or new database.")
         return 1
-    migrate()
-    print(f"database {target()}: at head")
+    migrate(url)
+    print(f"database {name}: at head")
     return 0
 
 

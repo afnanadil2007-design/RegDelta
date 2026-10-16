@@ -67,6 +67,7 @@ async def _recover_interrupted_runs() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()  # validates env fail-fast before serving traffic
+    settings.database_target()  # likewise the database settings (DatabaseConfigError)
     configure_logging(settings.log_level)
     ready, reason = settings.provider_readiness()
     log.info(

@@ -13,40 +13,30 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import URL
 
-from app.core.config import get_settings
+from app.core.config import ADMIN_DATABASE, get_settings
 from tests.conftest import BACKEND
 
 
-def _sync_url(url: str) -> str:
-    # render_as_string: str(URL) masks the password as "***".
-    return make_url(url).set(drivername="postgresql+psycopg").render_as_string(hide_password=False)
-
-
 @pytest.fixture
-def scratch_database(migrated_database: str) -> Iterator[str]:
+def scratch_database(migrated_database: str) -> Iterator[URL]:
     """A fresh, empty database; settings point at it for the test's duration."""
-    base_url = make_url(get_settings().sqlalchemy_url)
+    base_url = get_settings().database_target()
     name = f"regdelta_migration_{os.getpid()}_test"
-    admin = create_engine(
-        _sync_url(base_url.render_as_string(hide_password=False)), isolation_level="AUTOCOMMIT"
-    )
+    # psycopg 3 serves synchronous engines from the same URL.
+    admin = create_engine(base_url.set(database=ADMIN_DATABASE), isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:
         conn.execute(text(f'DROP DATABASE IF EXISTS "{name}"'))
         conn.execute(text(f'CREATE DATABASE "{name}"'))
 
-    scratch_url = base_url.set(database=name).render_as_string(hide_password=False)
-    previous = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = scratch_url
+    previous = os.environ["POSTGRES_DB"]
+    os.environ["POSTGRES_DB"] = name
     get_settings.cache_clear()
     try:
-        yield scratch_url
+        yield base_url.set(database=name)
     finally:
-        if previous is None:
-            os.environ.pop("DATABASE_URL", None)
-        else:
-            os.environ["DATABASE_URL"] = previous
+        os.environ["POSTGRES_DB"] = previous
         get_settings.cache_clear()
         with admin.connect() as conn:
             conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
@@ -86,9 +76,9 @@ INSERT INTO findings (id, assessment_id, obligation_id, policy_clause_id, impact
 """
 
 
-def test_0004_backfills_quote_status_and_clears_invented_scores(scratch_database: str) -> None:
+def test_0004_backfills_quote_status_and_clears_invented_scores(scratch_database: URL) -> None:
     command.upgrade(_alembic(), "0003_agent_run_seq")
-    engine = create_engine(_sync_url(scratch_database))
+    engine = create_engine(scratch_database)
     with engine.begin() as conn:
         for statement in LEGACY_ROWS.split(";"):
             if statement.strip():
@@ -110,9 +100,9 @@ def test_0004_backfills_quote_status_and_clears_invented_scores(scratch_database
     engine.dispose()
 
 
-def test_a_fresh_database_migrates_to_head(scratch_database: str) -> None:
+def test_a_fresh_database_migrates_to_head(scratch_database: URL) -> None:
     command.upgrade(_alembic(), "head")
-    engine = create_engine(_sync_url(scratch_database))
+    engine = create_engine(scratch_database)
     with engine.connect() as conn:
         revision = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         tables = conn.execute(

@@ -88,11 +88,9 @@ async def _database_available() -> bool:
 
 
 def _database_name() -> str:
-    from sqlalchemy.engine import make_url
-
     from app.core.config import get_settings
 
-    return make_url(get_settings().sqlalchemy_url).database or ""
+    return get_settings().database_target().database or ""
 
 
 @pytest.fixture(scope="session")

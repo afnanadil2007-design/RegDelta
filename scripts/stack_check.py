@@ -130,7 +130,7 @@ def main(argv: list[str]) -> int:
     user, name = setting("POSTGRES_USER", "regdelta"), setting("POSTGRES_DB", "regdelta")
     target = f"{user}@{host}:{port}/{name}"
     if setting("DATABASE_URL", ""):
-        print("host commands use: DATABASE_URL (not shown), not necessarily this stack")
+        print("host commands refuse to start: DATABASE_URL is set (not shown); unset it")
     elif host in ("localhost", *LOOPBACK) and port == published.get("postgres"):
         print(f"host commands use: {target}, this stack's postgres")
     else:

@@ -103,7 +103,11 @@ cache (read-only, offline) instead of downloading them into the stack, add
   creates `POSTGRES_DB` if it is missing and refuses to migrate a database
   that holds another application's tables; `make seed` refuses one that holds
   circulars from outside the synthetic corpus. Give the demo a database of
-  its own (for example `POSTGRES_DB=regdelta_demo`).
+  its own (for example `POSTGRES_DB=regdelta_demo`). These five variables
+  are the only database settings: every tool, migrations included, connects
+  to the database they name. `DATABASE_URL` is not supported, and every tool
+  refuses to start while it is set, so a URL left in the shell can never
+  send migrations to one database while the safety checks read another.
 
 ## Checks
 

@@ -27,10 +27,11 @@ def get_engine() -> AsyncEngine:
     global _engine
     if _engine is None:
         settings = get_settings()
+        url = settings.database_target()
         if settings.database_pool == "null":
-            _engine = create_async_engine(settings.sqlalchemy_url, poolclass=NullPool)
+            _engine = create_async_engine(url, poolclass=NullPool)
         else:
-            _engine = create_async_engine(settings.sqlalchemy_url, pool_pre_ping=True)
+            _engine = create_async_engine(url, pool_pre_ping=True)
     return _engine
 
 
