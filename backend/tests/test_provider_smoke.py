@@ -24,6 +24,7 @@ from psycopg import sql
 from app.core.config import Settings, describe_database, get_settings
 from evaluation import provider_smoke
 from evaluation.provider_smoke import EXIT, Fixture, Outcome
+from tests.conftest import SeededCorpus
 from tests.test_database_guards import _admin, _drop, _run, _scratch_name, _sql
 
 # A made-up key in the shape of none: it must never be sent or printed.
@@ -125,7 +126,8 @@ SEED = (
     " 'text')",
     "INSERT INTO obligations (id, circular_id, paragraph_id, text, char_start, char_end)"
     " VALUES (7, 1, 1, 'Brokers shall report margin by T+1 day.', 0, 39)",
-    "INSERT INTO policy_packs (id, name, version, is_synthetic) VALUES (3, 'Manual', '1', true)",
+    "INSERT INTO policy_packs (id, name, version, is_synthetic) VALUES"
+    " (3, 'Meridian Broking Internal Compliance Manual', '1.0', true)",
     "INSERT INTO policy_clauses (id, policy_pack_id, order_index, clause_number, text,"
     " char_start, char_end, embedding) VALUES (5, 3, 0, 'C.3', 'Report by T+2 days.', 0, 19,"
     " array_fill(0, ARRAY[384])::vector)",
@@ -162,10 +164,19 @@ def test_preflight_names_the_seeded_synthetic_database_it_will_use(migrated_scra
                 " 'circular',"
                 " 'https://www.sebi.gov.in/1.html', 'x', 1, 0)",
             ),
-            "1 circular(s) that are not from the synthetic corpus",
+            "1 circular(s) that the synthetic seed did not write",
+        ),
+        (
+            # The test suite's own fixtures: synthetic, but not the seed's corpus.
+            (*SEED, "UPDATE circulars SET source_url = 'synthetic://tests/0.pdf'"),
+            "1 circular(s) that the synthetic seed did not write",
+        ),
+        (
+            (*SEED, "UPDATE policy_packs SET name = 'Test pack', version = '1'"),
+            "holds no seeded synthetic manual",
         ),
         ((*SEED, "UPDATE policy_clauses SET embedding = NULL"), "its seed did not finish"),
-        ((*SEED[:3],), "holds no synthetic policy pack"),
+        ((*SEED[:3],), "holds no seeded synthetic manual"),
         (
             (*SEED, "UPDATE alembic_version SET version_num = '0003_agent_run_seq'"),
             "is at revision 0003_agent_run_seq",
@@ -191,6 +202,12 @@ def test_preflight_refuses_a_database_that_is_not_regdelta() -> None:
     finally:
         _drop(name)
     assert refused == f"{describe_database(_target(name))} has no RegDelta migration history"
+
+
+def test_the_test_suites_seeded_database_is_not_a_smoke_target(corpus: SeededCorpus) -> None:
+    """Its circulars are synthetic fixtures and its pack is "Test pack": not the seed's."""
+    refused = provider_smoke.preflight(get_settings().database_target(), 12)
+    assert isinstance(refused, str) and "that the synthetic seed did not write" in refused
 
 
 def test_an_unrelated_postgres_db_cannot_satisfy_the_smoke_run(

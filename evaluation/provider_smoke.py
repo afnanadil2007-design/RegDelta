@@ -12,11 +12,12 @@ provider call) otherwise:
   whose key is present (it is never printed); ``POSTGRES_DB`` named in the
   environment, and no DATABASE_URL;
 * the target (the database ``Settings.database_target()`` resolves, printed
-  as user@host:port/name) is a seeded synthetic RegDelta database: at this
-  checkout's migration head, holding only synthetic circulars, one with
-  obligations, and the synthetic manual with every clause embedded (the
-  seed's last steps ran). A database that merely exists under that name does
-  not pass;
+  as user@host:port/name) is one ``ingestion.seed`` built: at this
+  checkout's migration head, holding only circulars the synthetic generator
+  wrote (``synthetic://regdelta/``), one with obligations, and the seed's
+  synthetic manual (by name and version) with every clause embedded. A
+  database that merely exists under that name does not pass, nor does the
+  test suite's database, whose fixtures are synthetic but not the seed's;
 * the run is capped harder than the defaults, and the caps must be the
   settings in effect: 12 provider calls, 20,000 tokens, 300 s, one call at a
   time, 1,024 tokens per judge answer (the memo call allows 4,000);
@@ -147,8 +148,9 @@ def preflight(url: URL, max_calls: int) -> Fixture | str:
     from alembic.script import ScriptDirectory
 
     from app.core.config import describe_database, psycopg_args
+    from ingestion.generate_corpus import SOURCE_URL_PREFIX
     from ingestion.prepare_db import BACKEND
-    from ingestion.seed import SYNTHETIC_SCHEME
+    from ingestion.seed import PACK_NAME, PACK_VERSION
 
     name = describe_database(url)
     head = ScriptDirectory(str(BACKEND / "alembic")).get_current_head()
@@ -166,11 +168,11 @@ def preflight(url: URL, max_calls: int) -> Fixture | str:
             return f"{name} is at revision {', '.join(sorted(revisions)) or 'none'}, not {head}"
         outside = connection.execute(
             "SELECT count(*) FROM circulars WHERE NOT starts_with(coalesce(source_url, ''), %s)",
-            (SYNTHETIC_SCHEME,),
+            (SOURCE_URL_PREFIX,),
         ).fetchone()[0]
         if outside:
-            return f"{name} holds {outside} circular(s) that are not from the synthetic corpus"
-        # Every circular is synthetic now; pick the one with the fewest obligations.
+            return f"{name} holds {outside} circular(s) that the synthetic seed did not write"
+        # Every circular is the seed's now; pick the one with the fewest obligations.
         row = connection.execute(
             "SELECT c.id, c.circular_number, array_agg(o.id ORDER BY o.id) FROM circulars c"
             " JOIN obligations o ON o.circular_id = c.id"
@@ -179,10 +181,12 @@ def preflight(url: URL, max_calls: int) -> Fixture | str:
         if row is None:
             return f"{name} holds no synthetic circular with extracted obligations"
         pack = connection.execute(
-            "SELECT id FROM policy_packs WHERE is_synthetic ORDER BY id LIMIT 1"
+            "SELECT id FROM policy_packs WHERE is_synthetic AND name = %s AND version = %s"
+            " ORDER BY id LIMIT 1",
+            (PACK_NAME, PACK_VERSION),
         ).fetchone()
         if pack is None:
-            return f"{name} holds no synthetic policy pack"
+            return f"{name} holds no seeded synthetic manual ({PACK_NAME} {PACK_VERSION})"
         clauses = connection.execute(
             "SELECT id, embedding IS NOT NULL FROM policy_clauses WHERE policy_pack_id = %s",
             (pack[0],),

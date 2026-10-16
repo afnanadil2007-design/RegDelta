@@ -26,6 +26,8 @@ from ingestion.manifest import ManifestEntry, corpus_paths, write_manifest
 SEED = 20240101
 # ASCII only: see write_pdf.
 SYNTHETIC_BANNER = "[SYNTHETIC CORPUS - NOT A REAL SEBI CIRCULAR]"
+# Every generated circular's source_url starts with this.
+SOURCE_URL_PREFIX = "synthetic://regdelta/"
 
 DEPARTMENTS = {
     "MIRSD": "Market Intermediaries Regulation and Supervision Department",
@@ -341,7 +343,7 @@ def main(argv: list[str] | None = None) -> int:
                 issue_date=circular.issue_date.isoformat(),
                 department=circular.department,
                 doc_type="circular",
-                source_url=f"synthetic://regdelta/{path.name}",
+                source_url=f"{SOURCE_URL_PREFIX}{path.name}",
                 pdf_filename=path.name,
             )
         )
