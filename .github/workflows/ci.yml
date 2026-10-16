@@ -1,20 +1,37 @@
 name: CI
 
-# Fast gates on every push and pull request. The research evaluation (four
-# retrieval modes, tens of seconds per reranked query on CPU) runs separately
-# in evaluation.yml, on demand.
+# Fast gates on pushes to main and to repair branches, and on pull requests.
+# The research evaluation (four retrieval modes, tens of seconds per reranked
+# query on CPU) runs separately in evaluation.yml, on demand.
+#
+# Intended path for the repair branch: once a push is authorised, pushing
+# repair/regdelta-cleanup runs these four jobs on it (the "repair/**" filter);
+# a pull request into main then runs them again on the merge result. Manual
+# runs (workflow_dispatch) are available after this file reaches main, which
+# GitHub requires before it offers the button.
+#
+# Visual baselines in frontend/e2e/__screenshots__ were rendered on an Ubuntu
+# 24.04 base, so the jobs run on ubuntu-24.04 rather than a moving "latest".
+# A screenshot difference fails the e2e job and the report (with the diff
+# images) is uploaded; it is inspected and, if intended, accepted locally.
+# This workflow never updates snapshots.
 
 on:
   push:
-    branches: [main]
+    branches: [main, "repair/**"]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   TORCH_INDEX: https://download.pytorch.org/whl/cpu
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -67,7 +84,7 @@ jobs:
         run: pytest -q -rs
 
   retrieval-gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: backend
     services:
       postgres:
@@ -113,7 +130,7 @@ jobs:
           python -m evaluation.run_suites --suite refusal
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -138,9 +155,15 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
+      # The web image: npm ci from the lockfile, the same build, nginx with
+      # the /api proxy. `nginx -t` checks the rendered configuration.
+      - name: Build the web image and check its nginx configuration
+        run: |
+          docker build -t regdelta-web:ci frontend
+          docker run --rm regdelta-web:ci nginx -t
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [backend, frontend]
     services:
       postgres:
