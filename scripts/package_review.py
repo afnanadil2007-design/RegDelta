@@ -43,7 +43,17 @@ PREFIX = "RegDelta/"
 # Paths whose commits are evidence about the code, not code: the code
 # revision is the last commit that touched anything else.
 EVIDENCE_ONLY = ("docs/maintenance", "docs/screenshots")
-EVIDENCE_GLOBS = ("logs/**/*.log", "logs/**/*.txt", "audit/*.json", "bench/**/*.json")
+# Text evidence is redacted; images are copied as they are (they were
+# captured from synthetic data and inspected).
+EVIDENCE_GLOBS = (
+    "logs/**/*.log",
+    "logs/**/*.txt",
+    "audit/*.json",
+    "container*/*.json",
+    "screenshots/*.yml",
+    "screenshots/*.log",
+)
+BINARY_GLOBS = ("container*/*.png", "screenshots/*.png")
 
 FORBIDDEN = [
     (re.compile(r"(^|/)\.git/"), "git metadata"),
@@ -139,6 +149,10 @@ def main(argv: list[str]) -> int:
             entries[name] = text.encode("utf-8")
             if n:
                 redacted[name] = n
+
+    for pattern in BINARY_GLOBS:
+        for path in sorted(ARTIFACTS.glob(pattern)):
+            entries[f"{PREFIX}review-evidence/{path.relative_to(ARTIFACTS)}"] = path.read_bytes()
 
     previous = args.previous
     entries[f"{PREFIX}review-evidence/diff-{previous}..{code[:7]}.patch"] = git(
