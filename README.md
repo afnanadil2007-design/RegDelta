@@ -23,11 +23,12 @@ circular PDF → paragraphs with character offsets → obligations
 
 Each finding keeps three things apart:
 
-1. **Quote status.** *Quotes located* means both quoted passages were found
-   verbatim at stored offsets; it proves the text exists, not that the reading
-   is right. *Quote not located* findings are kept, marked unverified, and show
-   the quote that could not be found. *No quote to check* means retrieval found
-   no clause close enough, so nothing was judged.
+1. **Quote status.** *Quotes located* means every passage the finding quotes
+   was found verbatim at stored offsets (a *no match* verdict quotes only the
+   circular); it proves the text exists, not that the reading is right.
+   *Quote not located* findings are kept and show the quote that could not be
+   found. *No quote to check* means retrieval found no clause close enough, so
+   nothing was judged.
 2. **Machine interpretation.** The impact (conflict, modified, new
    requirement, already covered, no match) and rationale, labelled with the
    judge that produced them. A model's own score is shown as "model-stated,
@@ -41,9 +42,10 @@ Needs Docker, Python 3.11 and Node 20.
 
 ```bash
 cp .env.example .env     # the defaults run the demo; no API key needed
-make setup               # Postgres (pgvector) container, backend/.venv from the lockfile, npm ci
+make stack-check         # what Docker will touch; refuses a taken port or another stack's containers
+make setup               # this checkout's Postgres container, backend/.venv from the lockfile, npm ci
 make db seed             # create + migrate the database; build the synthetic demo data
-make dev-api             # terminal 1: API on http://127.0.0.1:8000
+make dev-api             # terminal 1: API on http://127.0.0.1:$API_PORT (8000)
 make dev-web             # terminal 2: app on http://127.0.0.1:5173
 ```
 
@@ -63,6 +65,46 @@ Then open **Circulars**, pick one, choose **Start assessment**, and follow the
 run into the workspace. [docs/demo-script.md](docs/demo-script.md) is a
 five-minute guided tour.
 
+### Everything in containers
+
+```bash
+make up venv install db seed   # this stack's postgres, seeded from the host
+make stack-up                  # builds the api image, then the web image, and starts all three
+# open http://127.0.0.1:$WEB_PORT (8080): nginx serves the app and proxies /api to the api container
+make down                      # stops and removes this project's containers; the volumes stay
+```
+
+The images install exactly the lockfiles (`npm ci`; `pip install --no-deps`
+then `pip check`). The API image is about 2.5 GB, almost all of it torch and
+the other ML wheels. To read the models from this machine's Hugging Face
+cache (read-only, offline) instead of downloading them into the stack, add
+`COMPOSE_FILE=docker-compose.yml:docker-compose.host-models.yml` to `.env`.
+
+### Configuration
+
+- **Which containers.** Compose names everything after the project,
+  `regdelta-local` unless `COMPOSE_PROJECT_NAME` says otherwise:
+  `regdelta-local-postgres-1`, volume `regdelta-local_pgdata`, and so on.
+  `make up`, `down` and `stack-up` run `make stack-check` first, which prints
+  the project, its containers (and the directory each was created from), its
+  volumes, ports and the database host commands will use, and stops if a port
+  is taken or the project's containers or volumes belong to another stack.
+- **Ports**, all on 127.0.0.1: `POSTGRES_PORT` (5432), `API_PORT` (8000; the
+  dev API and the container both publish here), `WEB_PORT` (8080, the
+  container app) and `REGDELTA_WEB_PORT` (5173, the Vite dev server).
+- **Precedence.** A variable exported in the shell wins over `.env`, which
+  wins over the defaults; this holds for the API and Python tools, Compose's
+  own settings and the Vite dev proxy. Make reads no `.env`. The api
+  container receives `.env` but not shell exports, and always uses the
+  stack's own postgres.
+- **Which database.** Either this checkout's own (`make up`), or one you
+  already run: skip `make up` and point `POSTGRES_HOST`, `POSTGRES_PORT`,
+  `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB` at it. `make db`
+  creates `POSTGRES_DB` if it is missing and refuses to migrate a database
+  that holds another application's tables; `make seed` refuses one that holds
+  circulars from outside the synthetic corpus. Give the demo a database of
+  its own (for example `POSTGRES_DB=regdelta_demo`).
+
 ## Checks
 
 ```bash
@@ -70,6 +112,10 @@ make check      # ruff, format check, mypy, backend tests, frontend typecheck/te
 make e2e-db e2e # Playwright against the real API and a disposable database
 make eval       # the research evaluation (slow: see below)
 ```
+
+`REGDELTA_WEB_URL=http://127.0.0.1:$WEB_PORT make e2e` runs the same
+Playwright suite against the containerised app instead of starting its own
+servers (the database must hold the seeded E2E data).
 
 CI (`.github/workflows/ci.yml`) runs the fast gates, a hybrid-retrieval
 regression gate on a small corpus, and the end-to-end suite; the full
@@ -87,17 +133,22 @@ On the 120-query sample (2026-10-15), reranking raised Recall@10 from 0.650
 (hybrid) to 0.758, paired difference +0.108 (95% interval +0.059 to +0.164).
 It refused 15 of 15 out-of-scope questions and none of the 135 answerable
 ones. The cost is a median of 56 s per query on a 2015 laptop CPU, against
-47 ms for hybrid. Fusing dense with lexical did not beat lexical alone on
-this corpus.
+47 ms for hybrid; a later eight-query benchmark under heavier load measured
+62 s against 0.10 s, so the search page defaults to Hybrid and offers
+reranking as an explicit, slower mode with a clock and Cancel. Fusing dense
+with lexical did not beat lexical alone on this corpus.
 [docs/evaluation.md](docs/evaluation.md) explains the method and its limits;
 [docs/evaluation-results.md](docs/evaluation-results.md) holds the generated
 tables with full provenance.
 
 A small real-source corpus (18 official SEBI documents, fetched by
 `python -m ingestion.scrape_sebi`, not redistributed) and an annotation
-workflow are in place for independent labels. Its candidate labels were
-drafted by a model and remain provisional; human review is pending, so no
-real-corpus accuracy is claimed.
+workflow are in place for independent retrieval-relevance labels. Its
+candidate labels were drafted by a model and remain provisional; human review
+is pending, so no real-corpus accuracy is claimed. Whether findings are
+supported by their evidence is a separate question with its own review
+workflow (`evaluation/support_review.py`): 41 findings are exported for it,
+and none has been reviewed.
 
 ## Documentation
 
