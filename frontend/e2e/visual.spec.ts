@@ -35,6 +35,11 @@ for (const width of WIDTHS) {
       const finding = detail.findings.find((f) => f.clause_number === "A.3") ?? detail.findings[0];
       await page.goto(`/assessments/${runId}?finding=${finding.id}`);
       await expect(page.locator("mark[data-mark=quote]").first()).toBeVisible();
+      // The run's duration and finish time change the line's length, and with
+      // it where the line wraps at 390px: pin the text, then mask it.
+      await page
+        .getByText(/finished \d/)
+        .evaluate((node) => (node.textContent = " · 50.0 s, finished 15 Oct 2026, 12:00"));
       await expect(page).toHaveScreenshot(`workspace-${width}.png`, {
         fullPage: true,
         mask: [page.getByText(/finished \d/), page.getByText(/^Database up/)],
