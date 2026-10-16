@@ -30,6 +30,9 @@
 
 @layer base {
   html {
+    /* The top bar is sticky and 3.5rem tall: keep focused and scrolled-to
+       elements clear of it (WCAG 2.4.11, focus not obscured). */
+    scroll-padding-top: 4.5rem;
     background: var(--desk);
     color: var(--ink);
     -webkit-font-smoothing: antialiased;
