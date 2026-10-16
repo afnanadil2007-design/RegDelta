@@ -5,6 +5,11 @@ regulatory text. **Every record here is provisional**: the questions and labels
 were drafted by a model (`annotator.type = "agent"`) and no person has
 reviewed them yet. No metric is reported from them until they are reviewed.
 
+They label retrieval relevance (does this passage answer this question?), so
+reviewing them measures search, not whether an assessment's rationale is
+supported by its evidence. That is a separate review:
+[`../support/`](../support/README.md).
+
 ## The documents
 
 `data/real_sources/manifest.jsonl` lists 18 documents fetched on 2026-10-15 by

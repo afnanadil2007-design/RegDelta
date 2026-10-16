@@ -188,6 +188,25 @@ def test_calibration_with_no_human_labels_is_empty_not_a_crash() -> None:
     assert calibration_agreement([JudgeLabel(1, True, None)]).n_compared == 0
 
 
+def test_an_empty_comparison_is_unmeasured_not_zero_or_perfect() -> None:
+    metrics = calibration_agreement([])
+    assert (metrics.raw_agreement, metrics.cohens_kappa) == (None, None)
+    assert metrics.interpretation == "undefined: no pairs to compare"
+
+
+def test_kappa_is_undefined_when_both_raters_never_vary() -> None:
+    # Ten pairs, all "supported" by both: agreement is total, but chance
+    # agreement is 1 too, so kappa is 0/0 rather than a perfect 1.0.
+    metrics = calibration_agreement([JudgeLabel(i, True, True) for i in range(10)])
+    assert metrics.raw_agreement == pytest.approx(1.0)
+    assert metrics.cohens_kappa is None
+    assert metrics.interpretation.startswith("undefined: both raters gave every pair")
+
+
+def test_groundedness_rate_of_no_findings_is_unmeasured() -> None:
+    assert compute_layer1([]).grounded_rate is None
+
+
 # --- performance --------------------------------------------------------
 
 

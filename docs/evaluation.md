@@ -12,8 +12,8 @@ themselves are generated from result files into
 | Refusal | 15 hand-written questions to refuse, 15 on-topic controls, and the 120 labelled queries | measured with the retrieval run |
 | Extraction | 132 obligations planted by the generator in 30 circulars | measured (a regression check; see below) |
 | Quote location (groundedness layer 1) | programmatic: quotes must be found verbatim | enforced in every run |
-| Real-source retrieval | 39 model-drafted candidate labels on 16 SEBI documents | **not measured**: human review pending |
-| Semantic correctness of verdicts | none | **not measured** |
+| Real-source retrieval | 39 model-drafted candidate relevance labels (33 questions) on 16 SEBI documents | **not measured**: human review pending |
+| Semantic support of findings | human evidence review of 41 exported findings (deterministic judge, synthetic corpus) | **not measured**: candidates exported, human review pending |
 
 ## The synthetic corpus, and what it can show
 
@@ -187,8 +187,8 @@ Quote location is not a
 metric but a gate: every finding's quotes are re-found in the circular and the
 clause, and a quote that cannot be found makes the finding `FAILED` with the
 quote kept for inspection. **Quote location shows that quoted text exists; it
-does not show that the verdict drawn from it is right.** Semantic correctness
-of verdicts has not been evaluated.
+does not show that the verdict drawn from it is right.** That question is the
+semantic-support review below, and it has not been run.
 
 ## Real-source evaluation (prepared, not run)
 
@@ -199,6 +199,30 @@ passages and are marked `provisional`. `python -m evaluation.annotation
 evaluate` reads reviewed records only, so it reports nothing until a person
 has reviewed them. See
 [evaluation/datasets/real/README.md](../evaluation/datasets/real/README.md).
+
+These are retrieval-relevance labels: reviewing them would measure whether
+search finds the passage that answers a question. They say nothing about
+whether an assessment's rationale is supported by its evidence.
+
+## Semantic-support review (prepared, not run)
+
+`evaluation/support_review.py` is a separate workflow for that question. It
+exports findings whose quotes were located, with the exact rationale, impact
+classification, both quotations with offsets, document checksum and context,
+and the generator (provider, model, graph version, deterministic or real
+model), and binds every human review to a hash of that snapshot, so a review
+of evidence that later changed no longer counts. Reviews record a named human,
+a time and one of `supported`, `unsupported` or `insufficient`; anything else
+is rejected, never read as approval. The report counts only valid, current
+reviews and keeps insufficient-or-ambiguous ones and every denominator
+visible; with no reviews it says nothing is measured.
+
+41 candidates are exported, from eight deterministic runs on the synthetic
+corpus. Reviewing them would measure the rule-based judge's explanations, not
+a language model's. A model judge can later be compared with the human labels
+(raw agreement and Cohen's kappa, undefined rather than 1.0 when both raters
+never vary); none is implemented. See
+[evaluation/datasets/support/README.md](../evaluation/datasets/support/README.md).
 
 ## Reproducing
 

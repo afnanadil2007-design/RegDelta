@@ -49,11 +49,14 @@ What RegDelta does not do, or does not yet show, stated plainly.
 - **Scores are not probabilities.** The cross-encoder's sigmoid output and
   any model-stated score are uncalibrated; no calibration has been measured.
 - **Quote checks are not correctness checks.** A located quote proves the
-  text exists in the source, not that the impact judgement is right. Semantic
-  correctness has not been evaluated against human labels.
+  text exists in the source, not that the impact judgement is right. Whether
+  findings are supported by their evidence has not been reviewed: the
+  semantic-support workflow and 41 exported candidates (deterministic judge,
+  synthetic corpus) are ready, and no human has reviewed them.
 - **Human review of the real-source labels is pending.** The candidate
   annotations are model-drafted and provisional by design; no metric is
-  reported on them until a person reviews them.
+  reported on them until a person reviews them. They are retrieval-relevance
+  labels, so reviewing them would not measure semantic support.
 
 ## Engineering
 
