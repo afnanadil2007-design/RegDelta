@@ -1,14 +1,14 @@
 {
-  "updated": "2026-10-16T20:45:00+05:30",
-  "status": "Correction pass C01-C05 complete locally; release candidate for independent review (v3 package). Open: F07 human reviews, G02 real-provider run, G04 hosted CI, R04 human decision",
-  "phase": "final corrections C01-C05 verified; tested code revision b078808",
+  "updated": "2026-10-17",
+  "status": "2026-10-17: merged repair; provider smoke and hosted CI passed. Human evaluation and dependency decision pending. Demo capture and backup exports prepared, not performed.",
+  "phase": "portfolio handoff; prior correction/release sections retained as historical snapshots",
   "repo": "/home/afnan/Downloads/Reg-Delta/RegDelta",
-  "branch": "repair/regdelta-cleanup",
+  "branch": "docs/final-handoff",
   "base_sha": "f4a4b57edc5807b5c1ec57072b04db6b8f619ead",
   "last_code_commit": "b078808",
-  "head": "the docs(maintenance) evidence commit after b078808 (git log -1)",
+  "head": "local docs/final-handoff commit after 4d090cc; resolve with git rev-parse HEAD",
   "pushed": false,
-  "dirty_tree": "clean after the evidence commit; git-ignored artefacts under .artifacts/ (logs, audits, screenshots, r2/)",
+  "dirty_tree": "see git status; only intended handoff files committed; ignored local evidence retained",
   "python_env": "backend/.venv (uv 0.12.5, CPython 3.11.16, torch 2.14.1+cpu)",
   "node": "nvm 20.20.2 for frontend (matches CI); 22.23.2 for playwright-cli",
   "services": {
@@ -70,7 +70,7 @@
     "clean_clone": "scratchpad/r2/clean, detached at b078808 (uv-hardlinked venv, npm ci, .env for regdelta-r2acc); clean tracked tree"
   },
   "env_for_commands": "PATH=backend/.venv/bin:$PATH POSTGRES_HOST=localhost POSTGRES_PORT=55432 POSTGRES_DB=<db> PYTHONPATH=backend:. HF_HUB_OFFLINE=1; Node 20.20.2 via nvm for the frontend",
-  "next_action": "User uploads RegDelta-review-v3.zip for independent review. Then, external and not done: the real-provider smoke run (exact command in regdelta-correction-report.md section 8), the F07 human reviews, the R04 decision, and an authorised push for hosted CI.",
+  "next_action": "Follow handoff_2026_10_17 and current handoff document for recording, backups and pending human evaluation. Older nested fields are historical.",
   "outstanding_failures": [],
   "impeccable": {
     "finish_review": "rounds 1 -> 2 -> 3 (fix) -> confirmation: ship (scored items)",
@@ -122,5 +122,25 @@
       "b078808"
     ],
     "tested_code_revision": "b078808"
+  },
+  "handoff_2026_10_17": {
+    "date": "2026-10-17",
+    "branch": "docs/final-handoff",
+    "base": "4d090cc",
+    "checkpoint_branch": "checkpoint/pre-final-handoff-20261017",
+    "checkpoint_bundle": "../RegDelta-pre-final-handoff-20261017.bundle",
+    "recovery": "Clean main; no staged, unstaged or untracked edits; ignored local data preserved.",
+    "G02": "passed per established handoff; Groq openai/gpt-oss-20b; run 07525384-7c53-4301-ba5f-28f0bdb7a2ff; four candidates committed b4b3236",
+    "G04": "hosted backend/frontend/retrieval-gate/e2e passed on 4d090cc per established handoff; no run URL supplied",
+    "F07": "human retrieval and semantic-support evaluation pending; AI-assisted annotations are not independent human validation",
+    "demo": "recorder prepared, syntax checked only; no playable recording produced",
+    "backup": "inventory only; no database dump or cleanup performed",
+    "current_instructions": "docs/maintenance/final-handoff-2026-10-17.md"
+  },
+  "historical_root_metadata": {
+    "head": "the docs(maintenance) evidence commit after b078808 (git log -1)",
+    "dirty_tree": "clean after the evidence commit; git-ignored artefacts under .artifacts/ (logs, audits, screenshots, r2/)",
+    "pushed": false,
+    "note": "Metadata from the 2026-10-16 correction pass; the repair was subsequently merged as established in handoff_2026_10_17."
   }
 }

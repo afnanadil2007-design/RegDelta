@@ -1,5 +1,9 @@
 # Limitations
 
+> **2026-10-17:** Repair merged; hosted CI and one Groq smoke passed. Human
+> evaluation remains pending. See the [current handoff](maintenance/final-handoff-2026-10-17.md)
+> for evidence, demo launch/recording and backup inventory. Research prototype.
+
 What RegDelta does not do, or does not yet show, stated plainly.
 
 ## Scope
@@ -51,8 +55,8 @@ What RegDelta does not do, or does not yet show, stated plainly.
 - **Quote checks are not correctness checks.** A located quote proves the
   text exists in the source, not that the impact judgement is right. Whether
   findings are supported by their evidence has not been reviewed: the
-  semantic-support workflow and 41 exported candidates (deterministic judge,
-  synthetic corpus) are ready, and no human has reviewed them.
+  semantic-support workflow has 45 candidates (41 deterministic and four
+  Groq findings, all on synthetic data); independent human review remains pending.
 - **Human review of the real-source labels is pending.** The candidate
   annotations are model-drafted and provisional by design; no metric is
   reported on them until a person reviews them. They are retrieval-relevance
@@ -60,9 +64,9 @@ What RegDelta does not do, or does not yet show, stated plainly.
 
 ## Engineering
 
-- **Remote CI has not run on this revision.** The workflows were exercised
-  locally with the same commands; the hosted run happens after review and
-  push.
+- **Hosted CI passed on merge commit `4d090cc`**, including backend,
+  frontend, retrieval-gate and e2e (2026-10-17 handoff evidence). This does
+  not measure real-world semantic accuracy.
 - **Reranking is slow on CPU.** A reranked search took a median of 62 s on
   the evaluation laptop on 2026-10-16 (eight queries, load average up to 8,
   swap full), against 0.10 s for Hybrid, which is the default mode; the search

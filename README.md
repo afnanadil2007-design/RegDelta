@@ -1,5 +1,9 @@
 # RegDelta
 
+> **2026-10-17:** Repair merged; hosted CI and one Groq smoke passed. Human
+> evaluation remains pending. See the [current handoff](docs/maintenance/final-handoff-2026-10-17.md)
+> for evidence, demo launch/recording and backup inventory. Research prototype.
+
 RegDelta compares a regulatory circular with a firm's compliance manual,
 obligation by obligation, and shows an analyst the evidence for every finding:
 the exact passage in the circular, the clause in the manual, the machine's
@@ -151,7 +155,7 @@ workflow are in place for independent retrieval-relevance labels. Its
 candidate labels were drafted by a model and remain provisional; human review
 is pending, so no real-corpus accuracy is claimed. Whether findings are
 supported by their evidence is a separate question with its own review
-workflow (`evaluation/support_review.py`): 41 findings are exported for it,
+workflow (`evaluation/support_review.py`): 45 findings (41 deterministic and four Groq) are exported for it,
 and none has been reviewed.
 
 ## Documentation
