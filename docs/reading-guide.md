@@ -1,5 +1,9 @@
 # Reading guide
 
+> **2026-10-17:** Repair merged; hosted CI and one Groq smoke passed. Human
+> evaluation remains pending. See the [current handoff](maintenance/final-handoff-2026-10-17.md)
+> for evidence, demo launch/recording and backup inventory. Research prototype.
+
 A route through the codebase that builds up in dependency order, so nothing
 refers forward to something you have not seen. Roughly two hours end to end.
 
@@ -182,8 +186,8 @@ The project is not above criticism, and these are the honest weak points:
   all 1,324.
 - **Groundedness layer 2** (LLM judge with Cohen's κ) is implemented but never
   run — it needs a provider key and human labels.
-- **The agent has not run end-to-end against a real model** in this
-  environment (no provider key); every recorded run used the deterministic
-  judge, and says so.
+- **One real-provider smoke passed on 2026-10-17**, using Groq
+  `openai/gpt-oss-20b` on synthetic data. This demonstrates integration;
+  human semantic-support evaluation remains pending.
 - **No authentication**, deliberately. Stated in the README so nobody deploys it
   assuming otherwise.

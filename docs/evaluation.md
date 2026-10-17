@@ -13,7 +13,7 @@ themselves are generated from result files into
 | Extraction | 132 obligations planted by the generator in 30 circulars | measured (a regression check; see below) |
 | Quote location (groundedness layer 1) | programmatic: quotes must be found verbatim | enforced in every run |
 | Real-source retrieval | 39 model-drafted candidate relevance labels (33 questions) on 16 SEBI documents | **not measured**: human review pending |
-| Semantic support of findings | human evidence review of 41 exported findings (deterministic judge, synthetic corpus) | **not measured**: candidates exported, human review pending |
+| Semantic support of findings | human evidence review of 45 exported findings (41 deterministic, four Groq; synthetic corpus) | **not measured**: candidates exported, human review pending |
 
 ## The synthetic corpus, and what it can show
 
@@ -217,9 +217,11 @@ is rejected, never read as approval. The report counts only valid, current
 reviews and keeps insufficient-or-ambiguous ones and every denominator
 visible; with no reviews it says nothing is measured.
 
-41 candidates are exported, from eight deterministic runs on the synthetic
-corpus. Reviewing them would measure the rule-based judge's explanations, not
-a language model's. A model judge can later be compared with the human labels
+As of 2026-10-17, 45 candidates are exported: 41 from eight deterministic
+runs and four from Groq `openai/gpt-oss-20b` smoke run
+`07525384-7c53-4301-ba5f-28f0bdb7a2ff`, all on the synthetic corpus. Human
+review remains pending and results must be separated by generator. AI-assisted
+annotations are not independent human validation. A model judge can later be compared with the human labels
 (raw agreement and Cohen's kappa, undefined rather than 1.0 when both raters
 never vary); none is implemented. See
 [evaluation/datasets/support/README.md](../evaluation/datasets/support/README.md).

@@ -1,5 +1,11 @@
 # Semantic-support review (prepared, not run)
 
+2026-10-17 update: four Groq `openai/gpt-oss-20b` findings were added by
+smoke run `07525384-7c53-4301-ba5f-28f0bdb7a2ff` (commit `b4b3236`), bringing
+the total to 45. All are from the synthetic corpus. Independent human review
+remains pending; AI-assisted labels are not independent human validation.
+The 41-finding description below documents the original deterministic batch.
+
 Does an assessment finding's evidence support its rationale? A located quote
 shows that the quoted text exists in the circular and the manual; it does not
 show that the impact classification or the rationale follows from it. This

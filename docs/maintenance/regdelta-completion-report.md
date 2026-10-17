@@ -1,5 +1,13 @@
 # RegDelta release repair — completion report
 
+> **2026-10-17 update:** PR #1 merged at `4d090cc`; hosted backend,
+> frontend, retrieval-gate and e2e passed on that commit (established handoff
+> evidence). A Groq `openai/gpt-oss-20b` smoke passed; run
+> `07525384-7c53-4301-ba5f-28f0bdb7a2ff`, four synthetic support candidates
+> committed in `b4b3236`. Earlier statements below describe the historical
+> pass, not current status. Human retrieval and semantic-support evaluation
+> remain pending. See [the current handoff](final-handoff-2026-10-17.md).
+
 Review handoff for the focused release repair of 2026-10-16 (R01–R11),
 which followed an independent review of the `0dc9437` package. The first
 version of this report, for the 66-item cleanup, is in git at `0dc9437`.
