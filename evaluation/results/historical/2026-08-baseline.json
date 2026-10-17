@@ -1,0 +1,8 @@
+{
+  "git_sha": "unknown",
+  "mode": "hybrid_rerank",
+  "recall@10": 0.76,
+  "recall@5": 0.7,
+  "mrr": 0.5661,
+  "n_queries": 50
+}

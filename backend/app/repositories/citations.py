@@ -7,9 +7,7 @@ supplies the retrieval gold set (Stage 5). The supersession edges drive the
 
 from __future__ import annotations
 
-from datetime import date
-
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.corpus import Citation, Supersession
@@ -24,6 +22,10 @@ class CitationRepository:
         await self.session.flush()
         return citations
 
+    async def delete_all(self) -> None:
+        """Remove every citation edge; the graph builder rebuilds from scratch."""
+        await self.session.execute(delete(Citation))
+
     async def list_resolved(self, limit: int | None = None) -> list[Citation]:
         """Resolved citations only — the gold-set builder's input."""
         stmt = select(Citation).where(Citation.resolved.is_(True)).order_by(Citation.id)
@@ -32,12 +34,21 @@ class CitationRepository:
         return list((await self.session.execute(stmt)).scalars())
 
     async def list_for_circular(self, circular_id: int) -> list[Citation]:
-        stmt = select(Citation).where(Citation.citing_circular_id == circular_id)
+        """Outbound edges, in the order they appear in the circular."""
+        stmt = (
+            select(Citation)
+            .where(Citation.citing_circular_id == circular_id)
+            .order_by(Citation.char_start, Citation.id)
+        )
         return list((await self.session.execute(stmt)).scalars())
 
     async def list_citing(self, cited_circular_id: int) -> list[Citation]:
-        """Inbound edges — which later circulars reference this one."""
-        stmt = select(Citation).where(Citation.cited_circular_id == cited_circular_id)
+        """Inbound edges — which other circulars reference this one."""
+        stmt = (
+            select(Citation)
+            .where(Citation.cited_circular_id == cited_circular_id)
+            .order_by(Citation.citing_circular_id, Citation.id)
+        )
         return list((await self.session.execute(stmt)).scalars())
 
     async def resolution_stats(self) -> tuple[int, int]:
@@ -60,30 +71,17 @@ class SupersessionRepository:
         await self.session.flush()
         return edges
 
+    async def delete_all(self) -> None:
+        await self.session.execute(delete(Supersession))
+
     async def list_for_circular(self, circular_id: int) -> list[Supersession]:
         """Both directions, for the amendment chain view."""
-        stmt = select(Supersession).where(
-            (Supersession.superseding_circular_id == circular_id)
-            | (Supersession.superseded_circular_id == circular_id)
+        stmt = (
+            select(Supersession)
+            .where(
+                (Supersession.superseding_circular_id == circular_id)
+                | (Supersession.superseded_circular_id == circular_id)
+            )
+            .order_by(Supersession.effective_date.nullslast(), Supersession.id)
         )
         return list((await self.session.execute(stmt)).scalars())
-
-    async def superseded_circular_ids(self, as_of: date) -> list[int]:
-        """Circulars no longer in force on ``as_of``.
-
-        A circular is excluded when a resolved supersession edge names it and
-        that edge took effect on or before the given date. Edges with no
-        effective date fall back to the superseding circular's issue date,
-        which is set by the caller at extraction time.
-        """
-        stmt = (
-            select(Supersession.superseded_circular_id)
-            .where(
-                Supersession.superseded_circular_id.is_not(None),
-                Supersession.resolved.is_(True),
-                Supersession.effective_date.is_not(None),
-                Supersession.effective_date <= as_of,
-            )
-            .distinct()
-        )
-        return [cid for cid in (await self.session.execute(stmt)).scalars() if cid is not None]

@@ -54,9 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     log_level = settings.log_level.lower()
 
     if args.reload:
-        uvicorn.run(
-            "app.main:app", host=host, port=port, reload=True, log_level=log_level
-        )
+        uvicorn.run("app.main:app", host=host, port=port, reload=True, log_level=log_level)
         return 0
 
     if sys.platform == "win32":

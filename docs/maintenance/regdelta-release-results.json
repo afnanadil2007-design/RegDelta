@@ -1,0 +1,268 @@
+{
+  "note": "Results recorded from the logs named in each row (paths under review-evidence/ in the package, .artifacts/r2/ locally). 'revision' is the commit the check ran on. Earlier failing runs are kept as rows of their own.",
+  "code_revision": "bd1e82d (tested); 7602abd adds only scripts/package_review.py",
+  "native_final_revision": "207f466 (differs from bd1e82d only in frontend/nginx/default.conf.template, which no native check uses)",
+  "checks": [
+    {
+      "check": "Python lint, format, types",
+      "command": "make lint typecheck",
+      "where": "native, clean clone",
+      "revision": "207f466",
+      "result": "passed",
+      "detail": "ruff 0 findings; 168 files formatted; mypy app/ai 0 issues in 27 files",
+      "evidence": "logs/final/lint-typecheck.log"
+    },
+    {
+      "check": "Frontend gates",
+      "command": "make test-frontend",
+      "where": "native, clean clone (npm ci, npm 10.8.2)",
+      "revision": "207f466",
+      "result": "passed",
+      "detail": "eslint, prettier, tsc -b; Vitest 36/36 in 9 files; build: main JS 344.44 kB (106.70 kB gzip), Evaluation 389.66 kB, CSS 27.76 kB",
+      "evidence": "logs/final/frontend.log"
+    },
+    {
+      "check": "Backend unit and integration tests",
+      "command": "prepare_db on new regdelta_r2_final_test; pytest -q -rs",
+      "where": "native, clean clone, uv-hardlinked venv equal to requirements.lock",
+      "revision": "207f466",
+      "result": "passed",
+      "detail": "354 passed, 0 failed, 0 skipped; database created and migrated from empty",
+      "evidence": "logs/final/pytest.log"
+    },
+    {
+      "check": "Retrieval gate (CI job)",
+      "command": "prepare_db, seed --count 60, check_baseline",
+      "where": "native, clean clone, new regdelta_r2_final_ci",
+      "revision": "207f466",
+      "result": "passed",
+      "detail": "244 queries, gold sha 2ca4eefa (baseline's); Recall@10 0.9713 vs 0.9713; MRR@10 0.5026 vs 0.5031; tolerance 0.03",
+      "evidence": "logs/final/retrieval-gate.log"
+    },
+    {
+      "check": "Retrieval gate, first attempt",
+      "command": "same",
+      "where": "native, clean clone, regdelta_r2_ci",
+      "revision": "867cb8a",
+      "result": "failed (correctly refused)",
+      "detail": "gold set differed (1,186 queries): 240 stale PDFs from a 300-circular seed were ingested; fixed in ce18f45, then passed",
+      "evidence": "logs/clean-clone/retrieval-gate.log, retrieval-gate-2.log"
+    },
+    {
+      "check": "Extraction suite (CI job)",
+      "command": "build_extraction_labels --count 30; run_suites --suite extraction",
+      "where": "native, clean clone",
+      "revision": "207f466",
+      "result": "passed",
+      "detail": "precision 1.000, recall 1.000 (132/132, 30 circulars); a regression check, labels share the generator's templates",
+      "evidence": "logs/final/retrieval-gate.log"
+    },
+    {
+      "check": "Refusal suite (CI job)",
+      "command": "run_suites --suite refusal",
+      "where": "native, clean clone, regdelta_r2_ci2 (60 circulars)",
+      "revision": "ce18f45",
+      "result": "passed",
+      "detail": "out-of-scope refused 15/15; controls refused 0/15; 23 min 15 s. Not repeated on bd1e82d: later code changes pin the same model revisions, fix make e2e-db and the nginx template",
+      "evidence": "logs/clean-clone/refusal-suite.log"
+    },
+    {
+      "check": "E2E database",
+      "command": "make e2e-db (REGDELTA_E2E_DB=regdelta_r2_final_e2e)",
+      "where": "native, clean clone, after the 60-circular CI seed",
+      "revision": "207f466",
+      "result": "passed",
+      "detail": "300 circulars regenerated (50 stale PDFs removed); gold set and manifest byte-identical to the commit",
+      "evidence": "logs/final/e2e-db.log, logs/final/summary.txt"
+    },
+    {
+      "check": "Playwright E2E, native servers",
+      "command": "make e2e",
+      "where": "native API + vite preview, clean clone",
+      "revision": "207f466",
+      "result": "passed",
+      "detail": "21/21 in 3.1 min: workflow, duplicate launch, axe on every route, focus sweep, search incl. real reranked refusal, point in time, evaluation, recovery, six visual baselines",
+      "evidence": "logs/final/e2e-native.log"
+    },
+    {
+      "check": "Playwright E2E, main tree before baseline acceptance",
+      "command": "make e2e",
+      "where": "native, main tree, regdelta_e2e",
+      "revision": "0e3f063 / 8fd4410",
+      "result": "failed then fixed",
+      "detail": "2 then 1 visual failures from the intended wording changes; inspected; accepted in 3225587",
+      "evidence": "logs/e2e-main-1.log, e2e-main-2.log, e2e-accept-workspace-baselines.log"
+    },
+    {
+      "check": "MCP over STDIO",
+      "command": "make mcp",
+      "where": "native, clean clone",
+      "revision": "207f466",
+      "result": "passed",
+      "detail": "discovery and invocation; unknown circular gives a readable error",
+      "evidence": "logs/final/mcp.log"
+    },
+    {
+      "check": "API image build, cold",
+      "command": "docker compose build api",
+      "where": "Docker, project regdelta-r2acc",
+      "revision": "working tree at d0f3528's content",
+      "result": "passed",
+      "detail": "9 min 32 s; pip install --no-deps -r requirements.lock && pip check",
+      "evidence": "logs/build-api-cold.log"
+    },
+    {
+      "check": "API image contents",
+      "command": "pip freeze / pip check / import in the image",
+      "where": "Docker",
+      "revision": "0e3f063",
+      "result": "passed",
+      "detail": "143 pins equal requirements.lock; pip check clean; app and four prompt files present; 2.52 GB",
+      "evidence": "logs/api-image-deps.log"
+    },
+    {
+      "check": "Web image build",
+      "command": "docker compose build web; nginx -t",
+      "where": "Docker, clean clone",
+      "revision": "0e3f063 and bd1e82d",
+      "result": "passed",
+      "detail": "npm ci 394 packages from the lock; nginx 1.30.5-alpine, 95.5 MB, no Node; bundle hash equals the native build",
+      "evidence": "logs/build-web-clean-clone.log, logs/web-nginx-t.log, logs/final-container/"
+    },
+    {
+      "check": "Container acceptance walk",
+      "command": "node accept-container.mjs http://127.0.0.1:8081",
+      "where": "Docker stack regdelta-r2acc",
+      "revision": "867cb8a, 207f466, bd1e82d",
+      "result": "passed",
+      "detail": "17/17 each time: JSON through the proxy, JSON 404s, deep links, 422 passthrough, assessment from the UI, SSE unbuffered, evidence, decision persisted",
+      "evidence": "logs/container-acceptance/accept-walk.log, logs/final/accept-walk.log, logs/final-container/accept-walk.log"
+    },
+    {
+      "check": "Playwright E2E through the container",
+      "command": "REGDELTA_WEB_URL=http://127.0.0.1:8081 npx playwright test",
+      "where": "Docker stack, nginx origin",
+      "revision": "867cb8a, 207f466, bd1e82d",
+      "result": "passed",
+      "detail": "21/21 each time",
+      "evidence": "logs/container-acceptance/e2e-through-container.log, logs/final/e2e-container.log, logs/final-container/e2e-container.log"
+    },
+    {
+      "check": "API outage through the proxy",
+      "command": "docker compose stop api; GET /api/health; UI; start api",
+      "where": "Docker stack",
+      "revision": "207f466",
+      "result": "failed",
+      "detail": "504 api_timeout after nginx's 60 s connect timeout to the cached address, with a misleading message; UI got api_unreachable. Fixed in bd1e82d",
+      "evidence": "logs/final/api-outage.log"
+    },
+    {
+      "check": "API outage through the proxy",
+      "command": "same",
+      "where": "Docker stack",
+      "revision": "867cb8a and bd1e82d",
+      "result": "passed",
+      "detail": "502 application/json api_unreachable; UI 'The API is not reachable'; 200 after restart",
+      "evidence": "logs/container-acceptance/api-outage.log, logs/final-container/api-outage.log"
+    },
+    {
+      "check": "Resource isolation",
+      "command": "identity of every container and volume before and after; make down",
+      "where": "host",
+      "revision": "867cb8a, 207f466, bd1e82d",
+      "result": "passed",
+      "detail": "0 diff lines for every pre-existing container and volume; only regdelta-r2acc-* created; its two volumes kept",
+      "evidence": "logs/*/identity-*.txt"
+    },
+    {
+      "check": "Workflow lint",
+      "command": "actionlint 1.7.12",
+      "where": "Docker",
+      "revision": "806dd1a",
+      "result": "passed",
+      "detail": "0 findings on ci.yml and evaluation.yml",
+      "evidence": "logs/actionlint.log"
+    },
+    {
+      "check": "npm audit",
+      "command": "npm audit --json; --omit=dev",
+      "where": "frontend lockfile",
+      "revision": "3dc1f57 (unchanged since)",
+      "result": "findings remain",
+      "detail": "production 2 moderate (react-router, not reached); full 9: 5 high (braces, no patched release, via Tailwind 3), 4 moderate",
+      "evidence": "audit/npm-audit-*-final.json"
+    },
+    {
+      "check": "pip-audit",
+      "command": "pip-audit 2.9.0 -r backend/requirements.lock --no-deps",
+      "where": "Python lockfile",
+      "revision": "806dd1a",
+      "result": "findings remain",
+      "detail": "24 advisories in 8 packages; torch not auditable; exposure assessed in dependency-advisories.md",
+      "evidence": "audit/pip-audit-*.json"
+    },
+    {
+      "check": "Latency benchmark",
+      "command": "python -m evaluation.bench_rerank",
+      "where": "native, regdelta_demo",
+      "revision": "b69acbe + uncommitted switch (recorded)",
+      "result": "measured",
+      "detail": "Hybrid 0.10 s; rerank 62.4 s median; 20 candidates 25.7 s",
+      "evidence": "evaluation/results/latency/2026-10-16-rerank-bench/"
+    },
+    {
+      "check": "Accessibility beyond axe",
+      "command": "200% zoom, ARIA tree, console",
+      "where": "native preview",
+      "revision": "8fd4410",
+      "result": "passed",
+      "detail": "0 px overflow on six routes; meaningful ARIA tree; no console errors",
+      "evidence": "screenshots/capture.log, screenshots/aria-workspace-1440.yml"
+    },
+    {
+      "check": "Screen-reader session",
+      "command": "-",
+      "where": "-",
+      "revision": "-",
+      "result": "unrun",
+      "detail": "Orca is installed but would take over the user's live desktop with speech; not started",
+      "evidence": "-"
+    },
+    {
+      "check": "Real-provider smoke run (G02)",
+      "command": "REGDELTA_ALLOW_PAID_CALLS=1 make provider-smoke",
+      "where": "-",
+      "revision": "-",
+      "result": "unrun",
+      "detail": "no key; paid calls not authorised; refusals tested",
+      "evidence": "backend/tests/test_provider_smoke.py"
+    },
+    {
+      "check": "Hosted CI (G04)",
+      "command": "push of repair/regdelta-cleanup",
+      "where": "GitHub Actions",
+      "revision": "-",
+      "result": "unrun",
+      "detail": "needs an authorised push",
+      "evidence": "-"
+    },
+    {
+      "check": "Human reviews (F07)",
+      "command": "evaluation.annotation review; evaluation.support_review review",
+      "where": "-",
+      "revision": "-",
+      "result": "unrun",
+      "detail": "39 retrieval-relevance records and 41 semantic-support candidates, 0 reviewed",
+      "evidence": "evaluation/reports/support_review.md"
+    },
+    {
+      "check": "Demo video",
+      "command": "-",
+      "where": "-",
+      "revision": "-",
+      "result": "unrun",
+      "detail": "not produced; docs/demo-script.md is a script",
+      "evidence": "-"
+    }
+  ]
+}

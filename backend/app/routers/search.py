@@ -12,7 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.repositories.search import SearchFilters
-from app.routers.schemas import SearchHit, SearchRequest, SearchResponse
+from app.routers.schemas import (
+    ExcludedCircular,
+    SearchHit,
+    SearchRequest,
+    SearchResponse,
+)
 from app.services.search import SearchHitData
 from app.services.search import search as search_service
 
@@ -44,7 +49,7 @@ async def search(
 ) -> SearchResponse:
     outcome = await search_service(
         session,
-        payload.query,
+        payload.query.strip(),
         mode=payload.mode,
         filters=SearchFilters(
             as_of=payload.as_of,
@@ -55,11 +60,18 @@ async def search(
         ),
         top_k=payload.top_k,
     )
-
     return SearchResponse(
         mode=outcome.mode,
         hits=[_to_hit(row) for row in outcome.hits],
-        below_threshold=outcome.below_threshold,
+        refused=outcome.refused,
         top_score=outcome.top_score,
-        excluded_by_temporal_filter=outcome.excluded_by_temporal_filter,
+        threshold=outcome.threshold,
+        score_kind=outcome.score_kind,
+        excluded_by_temporal_filter=[
+            ExcludedCircular(
+                circular_id=e.circular_id, circular_number=e.circular_number, title=e.title
+            )
+            for e in outcome.excluded
+        ],
+        elapsed_ms=outcome.elapsed_ms,
     )

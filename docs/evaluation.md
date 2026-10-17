@@ -1,320 +1,249 @@
 # Evaluation
 
-## What is measured, and how
+What RegDelta measures, how, and what the numbers do not show. The tables
+themselves are generated from result files into
+[evaluation-results.md](evaluation-results.md); this page explains them.
+
+## At a glance
 
 | Suite | Ground truth | Status |
 |---|---|---|
-| Retrieval | mined from the corpus's citation graph (1,324 pairs) | **implemented and run** |
-| Extraction | 120 labels over 30 circulars | **implemented and run** |
-| Refusal | `out_of_scope.jsonl`, 30 cases | **implemented and run** |
-| Groundedness L1 | programmatic span resolution | **enforced live + audited** |
-| Latency / cost | `agent_steps` per node | **implemented**; needs an assessment to report on |
-| Groundedness L2 | LLM judge, calibrated vs human labels | metric implemented, **not run** (needs a key + human labels) |
+| Retrieval, four modes | template-derived citation labels on the synthetic corpus | measured (sample of 120; fast modes also on all 1,324) |
+| Refusal | 15 hand-written questions to refuse, 15 on-topic controls, and the 120 labelled queries | measured with the retrieval run |
+| Extraction | 132 obligations planted by the generator in 30 circulars | measured (a regression check; see below) |
+| Quote location (groundedness layer 1) | programmatic: quotes must be found verbatim | enforced in every run |
+| Real-source retrieval | 39 model-drafted candidate relevance labels (33 questions) on 16 SEBI documents | **not measured**: human review pending |
+| Semantic support of findings | human evidence review of 41 exported findings (deterministic judge, synthetic corpus) | **not measured**: candidates exported, human review pending |
 
-This table is deliberately honest about what exists. Everything marked
-"implemented and run" produced numbers on this machine; the one unrun suite
-says so and why.
+## The synthetic corpus, and what it can show
 
-Run them with:
+The demo and the measured suites use 300 synthetic SEBI-style circulars from
+eight topic templates (`ingestion/generate_corpus.py`). They imitate reference
+formats, citation density, supersession and amendment language, and obligation
+phrasing, and each one is stamped as synthetic.
 
-```bash
-make eval            # retrieval ablation + all other suites
-make eval-suites     # extraction, refusal, groundedness, latency/cost only
-make eval-gate       # the CI regression gate alone
-```
-
-## The corpus caveat, stated once and loudly
-
-The measurements below were taken on a **synthetic corpus**
-(`ingestion/generate_corpus.py`), not on real SEBI circulars.
-
-`ingestion/scrape_sebi.py` targets the real sebi.gov.in listing, and the
-listing page does yield circular links — but each detail page returns a
-JavaScript shell with no reference number, date, or PDF link in the markup.
-Fetching the real corpus therefore requires a headless browser, a dependency
-this project deliberately does not take.
-
-What this means for the numbers:
-
-- **The pipeline is real.** The same `retrieve()` the UI and the agent call.
-- **The gold set is real** in construction: relevance genuinely comes from
-  resolved citations, not from a model's opinion.
-- **The documents are not real.** They imitate SEBI reference formats,
-  citation density, supersession language, and obligation phrasing, but they
-  are generated from eight topic templates.
-
-So these numbers are valid as a **comparison between retrieval modes on a
-fixed corpus** — which is what an ablation is for — and invalid as an estimate
-of retrieval quality on real SEBI text. Do not quote them as the latter.
+The numbers are therefore valid as **comparisons between configurations of
+one pipeline on one fixed corpus**. They are not estimates of quality on real
+SEBI circulars, and they are neither a floor nor a ceiling for it: real
+documents are longer, less templated and differently cited, which could move
+results either way. That question is unmeasured here.
 
 ## Retrieval
 
-### Gold set
+### Labels
 
-Built by `evaluation/build_gold_set.py` from resolved citations:
+`evaluation/build_gold_set.py` turns each resolved citation into two queries:
 
-| | count |
-|---|---:|
-| Circulars | 300 |
-| Resolved citations | 662 (100% of those found) |
-| Supersession edges | 73 |
-| **Gold pairs** | **1,324** |
-| — semantic subset | 662 |
-| — identifier subset | 662 |
+- **semantic**: the citing paragraph with the reference removed;
+- **identifier**: the reference string alone.
 
-A resolved citation is a human relevance judgement: the author of circular A,
-writing paragraph P, decided circular B was relevant. Two subsets stress
-different behaviour:
+The cited circular is the one relevant document. In this corpus the
+generator wrote the citations, so these are template-derived labels, not
+human relevance judgements, and a sibling circular on the same topic that
+would also answer a query still counts as a miss. Labels name circulars by
+number, so the gold file (1,324 queries from 662 citations) is valid for any
+database built from the same corpus.
 
-- **semantic** — query is P's prose *with the reference string removed*, so it
-  cannot be solved by exact match.
-- **identifier** — query is the raw reference string alone.
+### Protocol
 
-The 100% resolution rate is an artefact of a closed synthetic corpus in which
-every reference points at a document that exists. A real corpus resolves lower,
-and unresolved references are kept with `resolved=False` precisely so that rate
-is visible rather than hidden.
+- **One manifest for all modes.** `retrieval_sample.json` fixes 60 citations
+  (seed 20261015), so 120 in-scope queries, plus the 30-question refusal
+  suite: 15 questions the system should refuse and 15 on-topic controls it
+  should answer. Every mode answers exactly these ids. The manifest stores the
+  gold file's SHA-256 and the runner refuses a mismatched pair.
+- **Same code as the product.** Each query goes through the `retrieve()` the
+  API uses, with only `mode` varied.
+- **Threshold off for ranking.** The refusal threshold is not applied while
+  ranking is scored, so all modes are compared on the same lists; refusal is
+  then computed from the same run by applying the threshold rule to the
+  reranked scores.
+- **Exclusion.** The circular a query was taken from is removed from that
+  query's ranking. It contains the query verbatim and is never the cited
+  circular, so leaving it in would penalise every mode for finding the
+  source of the query.
+- **Fast modes on everything.** Dense, lexical and hybrid also run on all
+  1,324 queries (`make eval-fast`); the reranked mode is too slow on CPU for
+  that (a median of 56 s per query on the evaluation laptop, under load).
 
-### Ablation
+### Metrics and denominators
 
-See `evaluation/reports/retrieval_ablation.md` for the current table, generated
-by `make eval`. Numbers are also written to `eval_runs` / `eval_results` with
-the git SHA so trends are reconstructable.
+- **Recall@k** (k = 1, 5, 10): the share of in-scope queries whose relevant
+  circular is among the first k distinct circulars returned. With one relevant
+  document per query this is a hit rate.
+- **MRR@10**: mean of 1/rank of the relevant circular, 0 when it is not in the
+  top 10.
+- **Refusal, in scope**: labelled queries the reranked mode declined
+  (unwanted). **Refusal, controls**: on-topic questions without a relevance
+  label that it declined (also unwanted; they count nowhere else).
+  **Refusal, out of scope**: questions it should decline and did (wanted).
+  The other modes have no threshold and never refuse; the tables say so
+  instead of printing 0 as if it were measured behaviour.
+- **Answered Recall@10**: Recall@10 counting a refused query as a miss, which
+  is what a user of the refusing mode experiences.
+- **Latency**: wall time of one `retrieve()` call, models already loaded, one
+  query at a time; p50 and p95 per mode. Model loading is timed separately,
+  and so is each mode's whole run.
 
-### Results
+### Uncertainty
 
-50 queries per mode (stratified, fixed seed), 25 per subset.
+Queries drawn from the same citing circular share its wording and template,
+so they are not independent. Intervals for retrieval metrics are 95%
+percentile intervals from a bootstrap that resamples citing circulars (2,000
+resamples, fixed seed), and mode comparisons are paired on identical queries.
+The refusal-suite questions are independent, so their refusal rates use the
+Wilson interval. With 60 clusters these intervals are wide; differences inside
+them are not evidence of a difference.
 
-| Mode | Subset | Recall@5 | Recall@10 | MRR |
-|---|---|---:|---:|---:|
-| dense | semantic | 0.120 | 0.240 | 0.103 |
-| dense | identifier | 0.160 | 0.200 | 0.077 |
-| dense | **all** | 0.140 | 0.220 | 0.090 |
-| lexical | semantic | 0.320 | 0.480 | 0.153 |
-| lexical | identifier | 0.880 | 1.000 | 0.659 |
-| lexical | **all** | 0.600 | 0.740 | 0.406 |
-| hybrid | semantic | 0.280 | 0.440 | 0.161 |
-| hybrid | identifier | 0.880 | 0.960 | 0.590 |
-| hybrid | **all** | 0.580 | 0.700 | 0.375 |
-| hybrid_rerank | semantic | 0.400 | 0.520 | 0.179 |
-| hybrid_rerank | identifier | **1.000** | **1.000** | **0.953** |
-| hybrid_rerank | **all** | **0.700** | **0.760** | **0.566** |
+### Threshold
 
-### What the ablation actually shows
+`RELEVANCE_THRESHOLD = 0.35` is the configuration default set before this
+evaluation. It was not tuned on the reported sample, and no held-out tuning
+set exists yet; tuning it on these queries and reporting the same queries
+would overstate it. The cross-encoder's sigmoid output is a score in 0..1, not
+a calibrated probability.
 
-**1. The full pipeline wins, and the cross-encoder is the component that earns
-it.** This is the load-bearing result. Reciprocal Rank Fusion *on its own* is a
-slight regression against lexical alone (0.580 vs 0.600 Recall@5, 0.375 vs
-0.406 MRR) — dense contributes so little on this corpus that blending it in
-dilutes an already-good lexical ranking. Reranking the fused candidates
-recovers that loss and goes past both: +0.12 Recall@5 and +0.19 MRR over
-fusion, and +0.10 / +0.16 over lexical alone.
+## Retrieval results (2026-10-15)
 
-Read the identifier column for the mechanism: fusion ranks the right document
-in the top 5 for 88% of queries but only puts it *first* 59% of the time
-(MRR 0.590). The cross-encoder, reading query and passage together, lifts that
-to 100% and 0.953 — it is not finding new documents, it is ordering the ones
-fusion found. That is exactly what a reranker is for, and the ablation is how
-we know it is doing its job rather than adding latency for nothing.
+Full tables, intervals, misses and provenance:
+[evaluation-results.md](evaluation-results.md). The run's own notes (which
+code ran, one recomputed summary, load during timing):
+[`results/retrieval/2026-10-15-ablation/README.md`](../evaluation/results/retrieval/2026-10-15-ablation/README.md).
 
-**2. Dense retrieval underperforms on both subsets.** 0.120 Recall@5 on the
-semantic subset it was supposed to win is the surprise. Two causes: the corpus
-is generated from eight topic templates, so hundreds of documents are near
-paraphrases of each other and embeddings have almost nothing to separate them;
-and document-level relevance means the "right" answer is one specific circular
-among dozens that say nearly the same thing.
+On the 120-query sample, with 95% intervals:
 
-**3. The semantic ceiling of 0.400 is a corpus artefact, not a pipeline
-limit.** With 300 documents drawn from 8 templates, "which margin circular does
-this paragraph cite" is often genuinely undecidable from the text. Real
-regulation is far more distinguishable. Treat the semantic column as a floor.
+| Mode | Recall@10 | MRR@10 | Median latency |
+|---|---:|---:|---:|
+| Dense | 0.250 (0.17–0.34) | 0.074 | 48 ms |
+| Lexical | 0.658 (0.60–0.72) | 0.353 | 5 ms |
+| Hybrid (RRF) | 0.650 (0.59–0.71) | 0.388 | 47 ms |
+| Hybrid + rerank | 0.758 (0.70–0.82) | 0.545 | 56 s |
 
-**The methodological conclusion**, which transfers even though the numbers do
-not: report subsets separately, and never assume the dense retriever is doing
-the work. A single blended number would have shown hybrid_rerank winning and
-left the reader believing the embeddings were responsible.
+What the numbers support, and what they do not:
 
-### The cost of that win
+- **Reranking helps on this corpus.** Paired on the same queries, it adds
+  +0.108 Recall@10 (+0.059 to +0.164) and +0.157 MRR@10 over Hybrid, and
+  +0.100 Recall@10 over Lexical. Most of it is identifier queries moving to
+  rank 1 (Recall@1 0.467 → 0.900).
+- **Fusion does not beat lexical here.** Hybrid − Lexical is −0.008 Recall@10
+  (−0.026 to 0.000) on the sample; on all 1,324 queries Lexical has 0.695 and
+  Hybrid 0.665, and fusion costs identifier queries (0.998 → 0.931) while
+  adding little to semantic ones (0.391 → 0.399). The dense model alone is
+  weak on this corpus (0.274): template-generated circulars are close to one
+  another in embedding space, and a reference string carries no meaning an
+  embedding can use. Whether fusion helps on real circulars is unmeasured.
+- **Semantic queries are hard for every mode** (best Recall@10 0.517, best
+  MRR@10 0.142). Many misses return a sibling circular from the same
+  department and template, which would often answer the paragraph as well;
+  one relevant document per query makes those count as misses.
+- **Refusal separated perfectly on a small, easy suite.** The reranked mode
+  refused 15 of 15 questions it should refuse (best passage score ≤ 0.011)
+  and none of the 15 controls or 120 labelled queries (lowest best score
+  0.993). The intervals (0.80–1.00 and 0.00–0.20 for the suite) are wide, and
+  the suite has no near-miss questions, such as a SEBI topic the corpus lacks.
+- **Latency is this laptop under load**, not the models: medians of the
+  reranked mode drifted from 46 s to 102 s across the run as memory filled.
+  The fast modes ran slower on the full set (Dense 205 ms median) than on the
+  sample for the same reason. The ratio, not the absolute time, is the
+  finding: reranking costs about a thousand times a Hybrid query here.
 
-| Mode | 50 queries |
-|---|---:|
-| lexical | 1.1s |
-| hybrid | 35s |
-| dense | 82s |
-| hybrid_rerank | 97min |
+## Refusal history: the double sigmoid
 
-The cross-encoder scores 50 passages per query on a 4-core CPU, which is three
-orders of magnitude more expensive than lexical search for a 0.10 Recall@5
-gain. Whether that trade is worth taking is a product decision — but it is now
-a decision made against a number rather than a preference, and the `mode`
-parameter means a latency-sensitive caller can choose `lexical` deliberately.
+An earlier version of the refusal suite answered every out-of-scope question,
+including "What is the capital of France?". `CrossEncoder.predict` already
+applies this model's sigmoid, and the code applied a second one, which
+squeezed every score into (0.5, 0.731): ordering unchanged, so ranking metrics
+looked healthy, but nothing could fall below 0.35 and refusal never fired.
+The second sigmoid was removed, and
+`test_rerank_scores_span_the_full_zero_to_one_range` (real model) asserts that
+an unrelated query scores below the threshold. The August numbers measured
+through that bug are kept, labelled, in `evaluation/results/historical/`.
 
-## Extraction
+## Extraction and quote location
 
-Scored by `evaluation/metrics/extraction.py` against 120 labels across 30
-circulars, using the specified match rule: **overlapping span AND matching
-actor**.
+The extraction suite compares the rule extractor (`rules-v2`) with the
+obligations the generator planted in 30 synthetic circulars. On 2026-10-15
+(commit `9b50ce0`, evaluated sources clean) it scored precision 1.000 and recall 1.000 (132 of 132;
+`evaluation/results/suites/evaluation_extraction.md`). Read that as a
+regression check, not as accuracy: the extractor's rules and the generator's
+templates describe the same sentences.
 
-| Metric | Value |
-|---|---:|
-| Precision | 0.822 |
-| Recall | 1.000 |
-| F1 | 0.902 |
+The first run that day reported precision 0.909 (132 predicted, 120
+labelled). Every one of the 12 "false positives" was a planted obligation the
+*label builder* had missed: it matched templates with literal spaces, and the
+PDF wraps long sentences across lines. The matcher now accepts any
+whitespace; the labels went from 120 to 132.
 
-Overlap rather than exact span equality, because a model and an annotator
-routinely disagree about whether a trailing clause belongs to the obligation
-while agreeing entirely about which requirement is meant; scoring that as both
-a false positive and a false negative measures nothing useful. Actor matching
-is what keeps overlap from being too generous — a sentence binding two parties
-holds two obligations, and a prediction that merges them matches neither.
-Matching is greedy and one-to-one, so five near-duplicate predictions of one
-obligation score one true positive and four false positives.
+On real text there are no reviewed labels, so there is no metric. As a
+qualitative check, the extractor found 4,978 obligation sentences in the 17
+ingested SEBI documents (1,575 in the Master Circular for Stock Brokers). In a
+random sample of 15 (seed 20261015, judged by the model that drafted this
+page, so provisional), all 15 were genuine obligation sentences, but the
+recorded actor named the obligated party in only 7: passive sentences yield
+the object ("This report shall be placed…"), pronouns need coreference
+("They shall also ensure…"), and leading headings or adverbials stick to the
+subject ("Order Tracking – The system auditor…").
 
-**What these numbers describe.** They score the **rules-mode** extractor
-(`--mode rules`), which is the seeding path used to populate the demo database
-without a provider key. Recall of 1.000 is expected: the regex is looking for
-sentences a generator planted from a fixed template list. Precision of 0.822
-is the informative half — the remaining ~18% are sentences that are
-structurally obligations ("X shall …") but carry no requirement, mostly
-citation and supersession language that the exclusion list does not catch.
+Quote location is not a
+metric but a gate: every finding's quotes are re-found in the circular and the
+clause, and a quote that cannot be found makes the finding `FAILED` with the
+quote kept for inspection. **Quote location shows that quoted text exists; it
+does not show that the verdict drawn from it is right.** That question is the
+semantic-support review below, and it has not been run.
 
-The LLM path (`--mode llm`) is implemented with schema validation, one repair
-attempt, and span resolution, but has not been scored here because it needs a
-provider key. The metric is identical for both; only the predictions differ.
+## Real-source evaluation (prepared, not run)
 
-**Label provenance.** The labels are derived from the corpus generator's own
-ground truth rather than from a human reading PDFs — see
-`evaluation/build_extraction_labels.py`. That is correct for a synthetic
-corpus and free, with one honest limit: it tests whether extraction finds
-deliberately planted obligations, and cannot test judgement on genuinely
-ambiguous sentences, because the generator produces none. On a real corpus this
-step must be human annotation.
+`data/real_sources/manifest.jsonl` lists 18 official SEBI documents chosen by
+a recorded rule; 17 are ingested into a separate database. 39 candidate
+relevance records (33 questions) were drafted by a model while reading the
+passages and are marked `provisional`. `python -m evaluation.annotation
+evaluate` reads reviewed records only, so it reports nothing until a person
+has reviewed them. See
+[evaluation/datasets/real/README.md](../evaluation/datasets/real/README.md).
 
-## Refusal
+These are retrieval-relevance labels: reviewing them would measure whether
+search finds the passage that answers a question. They say nothing about
+whether an assessment's rationale is supported by its evidence.
 
-Scored over `evaluation/datasets/out_of_scope.jsonl`: 15 queries that should be
-refused (other regulators, general knowledge, live market data, a prompt
-injection attempt, nonsense) and 15 that should be answered (core corpus
-topics). Two rates are reported separately because they trade off, and a single
-"accuracy" hides which way the threshold is wrong:
+## Semantic-support review (prepared, not run)
 
-- **correct-refusal rate** — of queries that should be refused, how many were.
-- **false-refusal rate** — of queries that should be answered, how many were
-  refused anyway.
+`evaluation/support_review.py` is a separate workflow for that question. It
+exports findings whose quotes were located, with the exact rationale, impact
+classification, both quotations with offsets, document checksum and context,
+and the generator (provider, model, graph version, deterministic or real
+model), and binds every human review to a hash of that snapshot, so a review
+of evidence that later changed no longer counts. Reviews record a named human,
+a time and one of `supported`, `unsupported` or `insufficient`; anything else
+is rejected, never read as approval. The report counts only valid, current
+reviews and keeps insufficient-or-ambiguous ones and every denominator
+visible; with no reviews it says nothing is measured.
 
-A refusal here is the pipeline's explicit `below_threshold` signal, not a model
-declining in prose.
-
-| Metric | Before the reranker fix | After |
-|---|---:|---:|
-| Correct-refusal rate | 0.000 | **1.000** |
-| False-refusal rate | 0.000 | **0.000** |
-
-30/30 cases correct: every out-of-scope question refused, every in-scope
-question still answered. Note what the "before" column is — not a threshold set
-too loosely, but a threshold that could not fire at all. The `RELEVANCE_THRESHOLD`
-of 0.35 was correct the whole time; the scores reaching it were not.
-
-### What this suite caught
-
-The first run scored a **0.000 correct-refusal rate**: the pipeline answered
-all fifteen out-of-scope questions, including "What is the capital of France?".
-The false-refusal rate was also 0.000, so it was not a threshold set too
-aggressively — nothing was ever below threshold at all.
-
-The cause was in `rerank()`. `sentence_transformers`' `CrossEncoder.predict`
-already applies the model's own activation, and for this single-label model
-that activation is a sigmoid — it returns calibrated 0..1 probabilities. The
-code applied a *second* sigmoid on top. Measured directly:
-
-| Pair | `predict()` | after the extra sigmoid |
-|---|---:|---:|
-| "capital of France?" vs a margin clause | 0.00004 | 0.50001 |
-| "upfront margin collection" vs the same clause | 0.97158 | 0.72543 |
-
-A second sigmoid is monotonic, so **the ordering it produces is identical** —
-which is why the ablation above, measured through this bug, showed nothing
-wrong. What it destroys is the *scale*: every score is compressed into
-(0.5, 0.731), so nothing can fall below a 0.35 threshold and the refusal path
-is dead code that still looks healthy.
-
-One consequence needs checking rather than assuming, and it is **not yet
-measured**. `hybrid_rerank` applies the threshold, and a refused query returns
-no hits, so restoring real scores can only leave recall unchanged or *lower*
-it — a gold query whose best passage now scores below 0.35 counts as a miss.
-The ablation table above was measured *before* this fix. Re-measure it with:
-
-```bash
-python -m evaluation.run_eval --mode hybrid_rerank --sample 25   # ~20 min on 4 CPU cores
-python -m evaluation.run_suites --suite refusal
-```
-
-If `hybrid_rerank` recall drops, the threshold is trading recall for refusal
-accuracy, and `RELEVANCE_THRESHOLD` is the dial: lower it to recover recall,
-raise it to refuse more aggressively. Update `evaluation/baseline.json` (via
-`--write-baseline`) once you have settled on a value, since CI gates on it.
-
-`evaluation/reports/evaluation_refusal.md` holds the post-fix refusal run
-(1.000 / 0.000). `retrieval_ablation.md` is still the pre-fix ablation.
-
-This is the argument for measuring refusal as its own suite rather than
-trusting that a threshold works because retrieval scores look reasonable. No
-recall or MRR number could have surfaced it. The fix removes the extra sigmoid;
-`test_rerank_scores_span_the_full_zero_to_one_range` asserts an unrelated query
-scores below the threshold and below 0.5, so the bug cannot return silently.
-
-## Groundedness (layer 1)
-
-Enforced in the graph, not measured after the fact. `judge_impact` must quote
-verbatim; `verify_grounding` re-resolves both quotes against the source text
-via `app/ai/extraction/spans.py`. A quote that does not resolve is retried up
-to `MAX_VERIFICATION_RETRIES` and then **the claim is dropped** — never stored
-with a guessed offset.
-
-The same primitive is asserted over stored data:
-
-| Assertion | Result |
-|---|---|
-| Every paragraph span resolves in `full_text` | 0 violations across the corpus |
-| Every chunk span resolves in `full_text` | 0 violations |
-| Every obligation span resolves | 0 violations / 1,500 obligations |
-| Every obligation sits inside its paragraph | 0 violations |
-
-## Cost and latency
-
-Captured per node in `agent_steps` (`tokens_in`, `tokens_out`, `cost_usd`,
-`latency_ms`), and per assessment on `assessments`. `AgentRunRepository.
-node_latency_breakdown` aggregates by node. Pricing is tabulated in
-`app/ai/pricing.py`; a model with no published price yields cost 0.0 **and a
-warning**, so an unpriced model is visible rather than silently free.
-
-Measured retrieval latency on a 4-core CPU box, for the whole evaluation run:
-
-| Mode | 50 queries |
-|---|---:|
-| lexical | 1.1s |
-| hybrid | 35.3s |
-| dense | 81.8s |
-| hybrid_rerank | ~20s/query (cross-encoder dominates) |
-
-The cross-encoder is the cost centre by an order of magnitude. That is why the
-ablation samples the gold set rather than running all 1,324 queries in every
-mode, and why the sample size is printed in the report.
+41 candidates are exported, from eight deterministic runs on the synthetic
+corpus. Reviewing them would measure the rule-based judge's explanations, not
+a language model's. A model judge can later be compared with the human labels
+(raw agreement and Cohen's kappa, undefined rather than 1.0 when both raters
+never vary); none is implemented. See
+[evaluation/datasets/support/README.md](../evaluation/datasets/support/README.md).
 
 ## Reproducing
 
 ```bash
-make seed                      # corpus → ingest → graph → policy pack → embed → gold set
-make obligations               # rules mode; no API key needed
-python -m evaluation.run_eval --ablation --sample 25 --write-baseline
+make db seed              # the synthetic demo database
+make gold                 # gold set + the 60-citation sample manifest (already committed)
+make eval-retrieval       # four modes on the manifest; stores results for the UI
+make eval-fast            # fast modes on every query
+python -m evaluation.report
 ```
 
-The corpus generator is seeded, so the corpus — and therefore every number — is
-reproducible from the seed alone.
+Each result directory holds `per_query.jsonl` (one row per mode and query) and
+`summary.json` (metrics, intervals, paired differences, error examples, and the
+provenance block: commit and a digest of any uncommitted evaluated source,
+model revisions, threshold, data checksums, machine, timing method).
 
-## CI gate
+## The CI gate
 
-`.github/workflows/ci.yml` runs lint, typecheck, and the deterministic test
-suites. The retrieval gate compares a fresh run against
-`evaluation/baseline.json` and fails the build if Recall@10 drops more than 3
-points below the committed baseline.
+The pull-request gate (`make eval-gate`) runs hybrid retrieval over every
+gold query of the 60-document corpus CI builds and fails if Recall@10 or
+MRR@10 drops more than 0.03 below `evaluation/baseline.json`. The baseline
+records the gold file it was measured on and the gate refuses to compare
+against a different one. The reranked mode is not in the PR gate; it is
+measured by the manual evaluation workflow.

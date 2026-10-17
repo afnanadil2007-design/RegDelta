@@ -1,25 +1,14 @@
-"""Generate a deterministic SYNTHETIC SEBI-style corpus.
+"""Generate the deterministic SYNTHETIC SEBI-style corpus for the demo and tests.
 
-WHY THIS EXISTS
----------------
-``scrape_sebi.py`` targets the real sebi.gov.in listing, but the site renders
-circular detail pages client-side: the listing HTML yields links, and each
-detail page returns a JavaScript shell with no reference number, date, or PDF
-link in the markup. Fetching the real corpus therefore needs a headless
-browser, which is a dependency this project deliberately does not take.
+The corpus imitates the structure the pipeline depends on: SEBI reference-
+number families, a dense citation graph, supersession and amendment chains,
+and obligation language from the same topics as the policy manual. It is not
+regulation, and every page carries a banner saying so. Anything measured on it
+is reported as measured on synthetic data (docs/evaluation.md).
 
-So development and evaluation run on a synthetic corpus generated here. It is
-*structurally* faithful — real reference-number families, a dense
-cross-citation graph, supersession chains, and obligation language drawn from
-the same domains as the policy pack — which is what the retrieval, citation,
-and extraction code paths actually exercise. It is not, and does not claim to
-be, real regulation.
-
-EVERY metric measured against this corpus must be reported as measured on
-synthetic data. See docs/decisions/0003-citation-graph-gold-set.md.
-
-The generator is seeded, so the corpus (and therefore every evaluation number)
-is reproducible from the seed alone.
+The generator is seeded, so the corpus, and every number measured on it, can
+be rebuilt from the seed. Real documents live in a separate corpus
+(``scrape_sebi.py``, ``data/real_sources``).
 """
 
 from __future__ import annotations
@@ -32,10 +21,13 @@ from pathlib import Path
 
 import pymupdf
 
-from ingestion.manifest import DATA_DIR, MANIFEST_PATH, ManifestEntry, write_manifest
+from ingestion.manifest import ManifestEntry, corpus_paths, write_manifest
 
 SEED = 20240101
-SYNTHETIC_BANNER = "[SYNTHETIC CORPUS — NOT A REAL SEBI CIRCULAR]"
+# ASCII only: see write_pdf.
+SYNTHETIC_BANNER = "[SYNTHETIC CORPUS - NOT A REAL SEBI CIRCULAR]"
+# Every generated circular's source_url starts with this.
+SOURCE_URL_PREFIX = "synthetic://regdelta/"
 
 DEPARTMENTS = {
     "MIRSD": "Market Intermediaries Regulation and Supervision Department",
@@ -294,7 +286,20 @@ def generate(count: int, seed: int = SEED) -> list[GeneratedCircular]:
 
 
 def write_pdf(circular: GeneratedCircular, directory: Path) -> Path:
+    """Render the circular with PyMuPDF's built-in Helvetica.
+
+    That font only encodes Latin-1; anything else (an em dash, a rupee sign,
+    curly quotes) is written into the PDF as "?", silently corrupting the
+    corpus. Fail loudly instead.
+    """
     path = directory / (circular.number.replace("/", "_") + ".pdf")
+    for text in circular.pages:
+        try:
+            text.encode("latin-1")
+        except UnicodeEncodeError as exc:
+            raise ValueError(
+                f"{circular.number}: text not encodable in the PDF font: {exc}"
+            ) from exc
     doc = pymupdf.open()
     for text in circular.pages:
         page = doc.new_page()
@@ -304,18 +309,33 @@ def write_pdf(circular: GeneratedCircular, directory: Path) -> Path:
     return path
 
 
+def remove_stale(directory: Path, keep: set[str]) -> list[str]:
+    """Delete PDFs in the generator's output directory that this run did not write.
+
+    Ingestion takes every PDF in the directory, so leftovers from an earlier,
+    larger run (a 300-circular demo before a 60-circular CI corpus) would be
+    ingested beside the new corpus with no manifest entry, changing the gold
+    set. The directory holds generated files only and is git-ignored.
+    """
+    removed = sorted(p.name for p in directory.glob("*.pdf") if p.name not in keep)
+    for name in removed:
+        (directory / name).unlink()
+    return removed
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--count", type=int, default=300)
     parser.add_argument("--seed", type=int, default=SEED)
     args = parser.parse_args(argv)
 
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    paths = corpus_paths("synthetic")
+    paths.pdf_dir.mkdir(parents=True, exist_ok=True)
     circulars = generate(args.count, args.seed)
 
     entries: list[ManifestEntry] = []
     for circular in circulars:
-        path = write_pdf(circular, DATA_DIR)
+        path = write_pdf(circular, paths.pdf_dir)
         entries.append(
             ManifestEntry(
                 circular_number=circular.number,
@@ -323,14 +343,17 @@ def main(argv: list[str] | None = None) -> int:
                 issue_date=circular.issue_date.isoformat(),
                 department=circular.department,
                 doc_type="circular",
-                source_url=f"synthetic://regdelta/{path.name}",
+                source_url=f"{SOURCE_URL_PREFIX}{path.name}",
                 pdf_filename=path.name,
             )
         )
-    write_manifest(entries, MANIFEST_PATH)
+    write_manifest(entries, paths.manifest)
+    removed = remove_stale(paths.pdf_dir, {entry.pdf_filename for entry in entries})
 
-    print(f"Generated {len(entries)} SYNTHETIC circulars in {DATA_DIR}")
-    print(f"Manifest: {MANIFEST_PATH}")
+    print(f"Generated {len(entries)} SYNTHETIC circulars in {paths.pdf_dir}")
+    if removed:
+        print(f"Removed {len(removed)} PDFs left by an earlier, different generation.")
+    print(f"Manifest: {paths.manifest}")
     print("These are NOT real SEBI circulars — see the module docstring.")
     return 0
 

@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.core.model_sources import checked_source
 
 if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
@@ -67,8 +68,22 @@ def get_model() -> SentenceTransformer:
 
                 configure_torch_threads()
                 settings = get_settings()
-                log.info("embeddings.loading", extra={"model": settings.embedding_model})
-                _model = SentenceTransformer(settings.embedding_model, device="cpu")
+                log.info(
+                    "embeddings.loading",
+                    extra={
+                        "model": settings.embedding_model,
+                        "revision": settings.embedding_model_revision,
+                    },
+                )
+                _model = SentenceTransformer(
+                    # Checked again here, just before loading (model_sources).
+                    checked_source(
+                        "embedding", settings.embedding_model, settings.embedding_model_revision
+                    ),
+                    revision=settings.embedding_model_revision,
+                    trust_remote_code=False,
+                    device="cpu",
+                )
     return _model
 
 

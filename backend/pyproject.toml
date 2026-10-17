@@ -23,7 +23,9 @@ dependencies = [
     "anthropic>=0.34,<1",             # LLM gateway provider (Anthropic)
     "openai>=1.40,<2",                # LLM gateway provider (Groq, OpenAI-compatible)
     "httpx>=0.27,<1",                 # gateway transport
-    "fastmcp>=0.4",                   # MCP server
+    # 3.x: `@mcp.tool()` returns the plain function (2.x returned a tool
+    # object, which mcp_server/server.py's direct call would break on).
+    "fastmcp>=3.4,<4",                # MCP server
     # fastmcp's transitive `mcp` package pulls a newer Starlette than FastAPI
     # 0.115 supports; installing it unpinned breaks the API with
     # "Router.__init__() got an unexpected keyword argument 'on_startup'".
@@ -48,20 +50,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
-
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
-# B008: `Depends(...)` in a parameter default is the documented FastAPI idiom.
-ignore = ["B008"]
-
-[tool.ruff.lint.per-file-ignores]
-# Alembic revisions are generated; their line lengths and import order are not
-# ours to control, and reformatting them obscures the diff against autogenerate.
-"alembic/versions/*.py" = ["E501", "I001", "UP007", "UP035", "UP017"]
 
 [tool.mypy]
 python_version = "3.11"

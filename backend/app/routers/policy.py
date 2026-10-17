@@ -17,6 +17,7 @@ router = APIRouter(tags=["policy"])
 async def list_packs(session: AsyncSession = Depends(get_session)) -> list[PolicyPackOut]:
     repo = PolicyRepository(session)
     packs = await repo.list_packs()
+    counts = await repo.clause_counts([p.id for p in packs])
     return [
         PolicyPackOut(
             id=p.id,
@@ -24,7 +25,8 @@ async def list_packs(session: AsyncSession = Depends(get_session)) -> list[Polic
             version=p.version,
             description=p.description,
             is_synthetic=p.is_synthetic,
-            clause_count=await repo.count_clauses(p.id),
+            clause_count=counts.get(p.id, 0),
+            created_at=p.created_at,
         )
         for p in packs
     ]

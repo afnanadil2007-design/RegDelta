@@ -54,9 +54,7 @@ def resolve_span(quote: str, source: str, base_offset: int = 0) -> ResolvedSpan 
     match = pattern.search(source)
     if match is None:
         return None
-    return ResolvedSpan(
-        base_offset + match.start(), base_offset + match.end(), match.group(0)
-    )
+    return ResolvedSpan(base_offset + match.start(), base_offset + match.end(), match.group(0))
 
 
 def span_within(inner: ResolvedSpan, outer_start: int, outer_end: int) -> bool:

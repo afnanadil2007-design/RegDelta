@@ -17,6 +17,10 @@ through the findings table. Write for that reader.
 - Refer to findings by clause number (`C.3`, `G.2`) so the reader can navigate.
 - State only what the findings below support. Do not introduce requirements
   that no finding mentions, and do not soften or escalate a verdict.
+- Each finding's `quotes` says whether its quotations were found verbatim in
+  the circular and the policy (`located`). That shows the quoted text exists,
+  not that the judgement is right: never call a finding verified, confirmed or
+  correct. Every finding is a machine interpretation awaiting the analyst.
 - If there are no conflicts, say so plainly rather than manufacturing concern.
 - No preamble, no closing pleasantry, no restatement of these instructions.
 - This is an internal working document, not legal advice; do not offer legal

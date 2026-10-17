@@ -7,22 +7,28 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b",
     "test": "vitest",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@fontsource-variable/public-sans": "5.3.0",
+    "@fontsource/charis-sil": "5.3.0",
     "@tanstack/react-query": "^5.51.0",
-    "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.427.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.0",
+    "react-router-dom": "6.30.6",
     "recharts": "^2.12.7",
     "tailwind-merge": "^2.5.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.1",
+    "@eslint/js": "9.39.5",
     "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^6.4.8",
     "@testing-library/react": "^16.0.0",
@@ -31,11 +37,16 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
+    "eslint": "9.39.5",
+    "eslint-plugin-react-hooks": "5.1.0",
+    "globals": "15.14.0",
     "jsdom": "^24.1.1",
     "postcss": "^8.4.40",
+    "prettier": "3.4.2",
     "tailwindcss": "^3.4.7",
     "typescript": "^5.5.4",
-    "vite": "^5.3.5",
-    "vitest": "^2.0.5"
+    "typescript-eslint": "8.70.1",
+    "vite": "6.4.3",
+    "vitest": "4.1.11"
   }
 }

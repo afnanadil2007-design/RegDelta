@@ -1,8 +1,13 @@
 """Alembic environment.
 
-Runs migrations against the async engine, pulling the URL from validated
-settings so there is one source of truth. ``target_metadata`` is ``Base.metadata``;
-model modules are imported here so autogenerate sees them (Stage 2+).
+Runs migrations against the async engine. The database is the one
+``Settings.database_target()`` names, or the one a caller already checked and
+passed in ``config.attributes["database_target"]`` (``ingestion.prepare_db``
+does), so the database checked is the database migrated. The URL is used as
+an object, never written into the ini configuration, whose ``%`` interpolation
+would corrupt a percent-encoded password. ``target_metadata`` is
+``Base.metadata``; importing ``app.db.models`` registers every table so
+autogenerate sees them.
 """
 
 from __future__ import annotations
@@ -11,21 +16,22 @@ import asyncio
 import sys
 from logging.config import fileConfig
 
+from alembic import context
+from sqlalchemy import pool
+from sqlalchemy.engine import URL, Connection
+from sqlalchemy.ext.asyncio import create_async_engine
+
 # Side-effect import: registers all 14 tables on Base.metadata for autogenerate.
 import app.db.models  # noqa: F401
-from sqlalchemy import pool
-from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Run in-process (prepare_db, the tests), keep the app's loggers working.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
-config.set_main_option("sqlalchemy.url", get_settings().sqlalchemy_url)
+database: URL = config.attributes.get("database_target") or get_settings().database_target()
 target_metadata = Base.metadata
 
 
@@ -41,7 +47,7 @@ def _run_migrations(connection: Connection) -> None:
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=get_settings().sqlalchemy_url,
+        url=database,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -51,11 +57,7 @@ def run_migrations_offline() -> None:
 
 
 async def run_migrations_online() -> None:
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    connectable = create_async_engine(database, poolclass=pool.NullPool)
     async with connectable.connect() as connection:
         await connection.run_sync(_run_migrations)
     await connectable.dispose()

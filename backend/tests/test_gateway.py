@@ -60,9 +60,7 @@ def test_strict_schema_strips_unsupported_validation_keywords() -> None:
 def _fake_openai_response(content: str, *, prompt_tokens=11, completion_tokens=7, refusal=None):
     message = types.SimpleNamespace(content=content, refusal=refusal)
     choice = types.SimpleNamespace(message=message, finish_reason="stop")
-    usage = types.SimpleNamespace(
-        prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
-    )
+    usage = types.SimpleNamespace(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
     return types.SimpleNamespace(choices=[choice], usage=usage)
 
 
@@ -208,8 +206,9 @@ class _FakeAnthropicClient:
 
 
 def test_anthropic_path_uses_output_config(monkeypatch) -> None:
-    gw = LLMGateway(_settings(LLM_PROVIDER="anthropic", ANTHROPIC_API_KEY="sk-x",
-                             LLM_MODEL="claude-opus-5"))
+    gw = LLMGateway(
+        _settings(LLM_PROVIDER="anthropic", ANTHROPIC_API_KEY="sk-x", LLM_MODEL="claude-opus-5")
+    )
     sink: dict = {}
     monkeypatch.setattr(
         gw, "_anthropic", lambda: _FakeAnthropicClient(_fake_anthropic_response("hi there"), sink)
@@ -220,3 +219,126 @@ def test_anthropic_path_uses_output_config(monkeypatch) -> None:
     assert out.tokens_in == 42 and out.tokens_out == 8
     # Structured output rides on Anthropic's output_config.format, not response_format.
     assert sink["output_config"]["format"]["type"] == "json_schema"
+
+
+# --- cost accounting and concurrency ------------------------------------------
+
+
+def test_an_unpriced_model_has_unknown_cost_not_zero(monkeypatch) -> None:
+    gw = LLMGateway(_settings(LLM_MODEL="some/unlisted-model"))
+    monkeypatch.setattr(gw, "_groq", lambda: _FakeGroqClient(_fake_openai_response("{}"), {}))
+    out = gw.complete("hello")
+    assert out.cost_usd is None
+
+
+def test_concurrent_calls_are_bounded_by_the_configured_limit(monkeypatch) -> None:
+    import threading
+    import time
+
+    gw = LLMGateway(_settings(LLM_MAX_CONCURRENCY=2))
+    active = 0
+    peak = 0
+    lock = threading.Lock()
+
+    class _SlowCompletions:
+        def create(self, **_params):
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            time.sleep(0.05)
+            with lock:
+                active -= 1
+            return _fake_openai_response("{}")
+
+    client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=_SlowCompletions()))
+    monkeypatch.setattr(gw, "_groq", lambda: client)
+
+    threads = [threading.Thread(target=gw.complete, args=("x",)) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert peak == 2
+
+
+# --- obligation extraction through the gateway ---------------------------------
+
+PARAGRAPH = "2.2 Stock brokers shall report short-collection of margin to the exchange by T+1 day."
+
+
+def _extract_with(monkeypatch, *outputs: str):
+    from app.ai.extraction.obligations import extract_from_paragraph
+
+    gw = LLMGateway(_settings())
+    responses = iter(outputs)
+
+    class _Sequence:
+        def create(self, **_params):
+            return _fake_openai_response(next(responses))
+
+    monkeypatch.setattr(
+        gw,
+        "_groq",
+        lambda: types.SimpleNamespace(chat=types.SimpleNamespace(completions=_Sequence())),
+    )
+    return extract_from_paragraph(gw, PARAGRAPH, paragraph_char_start=200)
+
+
+def _obligation_json(text: str) -> str:
+    import json
+
+    return json.dumps({"obligations": [{"text": text, "actor": "Stock brokers"}]})
+
+
+def test_extraction_resolves_spans_into_full_text_coordinates(monkeypatch) -> None:
+    quote = "Stock brokers shall report short-collection of margin"
+    outcome = _extract_with(monkeypatch, _obligation_json(quote))
+    (candidate,) = outcome.candidates
+    assert candidate.span.char_start == 200 + PARAGRAPH.index(quote)
+    assert candidate.extracted.confidence is None, "no confidence given, none invented"
+    assert not outcome.failed and not outcome.repaired
+
+
+def test_malformed_output_gets_one_repair(monkeypatch) -> None:
+    good = _obligation_json("Stock brokers shall report short-collection of margin")
+    outcome = _extract_with(monkeypatch, "{not json", good)
+    assert outcome.repaired and not outcome.failed
+    assert len(outcome.candidates) == 1
+
+
+def test_fenced_json_is_accepted(monkeypatch) -> None:
+    fenced = "```json\n" + _obligation_json("Stock brokers shall report short-collection") + "\n```"
+    assert len(_extract_with(monkeypatch, fenced).candidates) == 1
+
+
+def test_a_second_malformed_output_is_an_explicit_failure(monkeypatch) -> None:
+    outcome = _extract_with(monkeypatch, "{not json", "[still not an object]")
+    assert outcome.failed
+    assert outcome.candidates == []
+    assert "schema violation after repair" in (outcome.failure_reason or "")
+
+
+def test_an_unresolvable_quote_is_dropped_and_counted(monkeypatch) -> None:
+    outcome = _extract_with(monkeypatch, _obligation_json("Brokers may waive all margin entirely"))
+    assert outcome.candidates == []
+    assert outcome.dropped_unresolvable == 1
+    assert not outcome.failed
+
+
+def test_an_empty_answer_is_valid(monkeypatch) -> None:
+    outcome = _extract_with(monkeypatch, '{"obligations": []}')
+    assert outcome.candidates == [] and not outcome.failed
+
+
+def test_extraction_cost_stays_unknown_once_a_call_is_unpriced(monkeypatch) -> None:
+    from app.ai.extraction.obligations import extract_from_paragraph
+
+    gw = LLMGateway(_settings(LLM_MODEL="some/unlisted-model"))
+    monkeypatch.setattr(
+        gw,
+        "_groq",
+        lambda: _FakeGroqClient(_fake_openai_response('{"obligations": []}'), {}),
+    )
+    outcome = extract_from_paragraph(gw, PARAGRAPH, 0)
+    assert outcome.cost_usd is None

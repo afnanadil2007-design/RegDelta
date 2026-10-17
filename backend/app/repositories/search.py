@@ -14,6 +14,7 @@ from sqlalchemy import ScalarSelect, Select, and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.corpus import Chunk, Circular, Supersession
+from app.db.models.enums import REMOVES_FROM_FORCE
 
 
 @dataclass
@@ -30,14 +31,16 @@ class SearchFilters:
 def _superseded_subquery(as_of: date) -> ScalarSelect[int]:
     """Circular ids not in force on ``as_of``.
 
-    A circular is out of force when a *resolved* supersession edge names it and
-    that edge took effect on or before the given date.
+    A circular is out of force when a *resolved* edge that supersedes or
+    rescinds it took effect on or before the given date. Amendment edges do
+    not count: an amended circular remains in force as modified.
     """
     return (
         select(Supersession.superseded_circular_id)
         .where(
             Supersession.superseded_circular_id.is_not(None),
             Supersession.resolved.is_(True),
+            Supersession.supersession_type.in_(REMOVES_FROM_FORCE),
             Supersession.effective_date.is_not(None),
             Supersession.effective_date <= as_of,
         )
@@ -100,9 +103,7 @@ class SearchRepository:
         rows = (await self.session.execute(stmt)).all()
         return [(int(r[0]), float(r[1])) for r in rows]
 
-    async def excluded_by_temporal_filter(
-        self, chunk_ids: list[int], as_of: date
-    ) -> list[int]:
+    async def excluded_by_temporal_filter(self, chunk_ids: list[int], as_of: date) -> list[int]:
         """Which of these chunks the as_of filter would remove.
 
         Used to populate the UI banner: results that *would* have ranked but

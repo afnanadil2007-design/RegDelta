@@ -24,8 +24,8 @@ from app.ai.extraction.schemas import (
     json_schema_for,
 )
 from app.ai.extraction.spans import ResolvedSpan, resolve_span
-from app.ai.gateway import GatewayError, LLMGateway
-from app.ai.prompts import load_prompt
+from app.ai.gateway import GatewayError, LLMGateway, LLMResponse
+from app.ai.prompts import render_prompt
 from app.core.logging import get_logger
 
 log = get_logger("app.ai.extraction.obligations")
@@ -46,11 +46,20 @@ class ExtractionOutcome:
     candidates: list[ObligationCandidate] = field(default_factory=list)
     tokens_in: int = 0
     tokens_out: int = 0
-    cost_usd: float = 0.0
+    # None once any call used a model with no list price.
+    cost_usd: float | None = 0.0
     repaired: bool = False
     failed: bool = False
     failure_reason: str | None = None
     dropped_unresolvable: int = 0
+
+    def add_usage(self, response: LLMResponse) -> None:
+        self.tokens_in += response.tokens_in
+        self.tokens_out += response.tokens_out
+        if self.cost_usd is not None and response.cost_usd is not None:
+            self.cost_usd += response.cost_usd
+        else:
+            self.cost_usd = None
 
 
 def _parse(payload: str) -> ObligationExtraction:
@@ -76,7 +85,7 @@ def extract_from_paragraph(
     no further arithmetic at the call site.
     """
     outcome = ExtractionOutcome()
-    prompt = load_prompt("extract_obligations").replace("{paragraph}", paragraph_text)
+    prompt = render_prompt("extract_obligations", paragraph=paragraph_text)
 
     try:
         response = gateway.complete(prompt, json_schema=_SCHEMA)
@@ -85,9 +94,7 @@ def extract_from_paragraph(
         outcome.failure_reason = f"gateway: {exc}"
         return outcome
 
-    outcome.tokens_in += response.tokens_in
-    outcome.tokens_out += response.tokens_out
-    outcome.cost_usd += response.cost_usd
+    outcome.add_usage(response)
 
     if response.refused:
         outcome.failed = True
@@ -138,9 +145,7 @@ def _repair(
     except GatewayError as exc:
         return None, f"gateway during repair: {exc}"
 
-    outcome.tokens_in += response.tokens_in
-    outcome.tokens_out += response.tokens_out
-    outcome.cost_usd += response.cost_usd
+    outcome.add_usage(response)
 
     try:
         return _parse(response.text), ""

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from evaluation.metrics.extraction import (
     ExtractionMetrics,
     LabelledObligation,
@@ -114,10 +115,10 @@ def _case(cid: str, should_refuse: bool) -> RefusalCase:
 
 def test_refusal_rates_are_reported_separately() -> None:
     outcomes = [
-        RefusalOutcome(_case("a", True), refused=True, top_score=0.1),    # correct
-        RefusalOutcome(_case("b", True), refused=False, top_score=0.9),   # missed
+        RefusalOutcome(_case("a", True), refused=True, top_score=0.1),  # correct
+        RefusalOutcome(_case("b", True), refused=False, top_score=0.9),  # missed
         RefusalOutcome(_case("c", False), refused=False, top_score=0.8),  # correct
-        RefusalOutcome(_case("d", False), refused=True, top_score=0.2),   # false refusal
+        RefusalOutcome(_case("d", False), refused=True, top_score=0.2),  # false refusal
     ]
     metrics = compute_refusal(outcomes)
     assert metrics.correct_refusal_rate == pytest.approx(0.5)
@@ -185,6 +186,25 @@ def test_calibration_ignores_unlabelled_rows() -> None:
 
 def test_calibration_with_no_human_labels_is_empty_not_a_crash() -> None:
     assert calibration_agreement([JudgeLabel(1, True, None)]).n_compared == 0
+
+
+def test_an_empty_comparison_is_unmeasured_not_zero_or_perfect() -> None:
+    metrics = calibration_agreement([])
+    assert (metrics.raw_agreement, metrics.cohens_kappa) == (None, None)
+    assert metrics.interpretation == "undefined: no pairs to compare"
+
+
+def test_kappa_is_undefined_when_both_raters_never_vary() -> None:
+    # Ten pairs, all "supported" by both: agreement is total, but chance
+    # agreement is 1 too, so kappa is 0/0 rather than a perfect 1.0.
+    metrics = calibration_agreement([JudgeLabel(i, True, True) for i in range(10)])
+    assert metrics.raw_agreement == pytest.approx(1.0)
+    assert metrics.cohens_kappa is None
+    assert metrics.interpretation.startswith("undefined: both raters gave every pair")
+
+
+def test_groundedness_rate_of_no_findings_is_unmeasured() -> None:
+    assert compute_layer1([]).grounded_rate is None
 
 
 # --- performance --------------------------------------------------------

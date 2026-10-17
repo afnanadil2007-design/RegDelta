@@ -14,90 +14,62 @@ rest of the integration suite.
 from __future__ import annotations
 
 import asyncio
+import uuid
 
 import pytest
 import pytest_asyncio
-from app.db.models.assessment import AgentRun, AgentStep, Assessment
-from app.db.models.enums import AssessmentStatus
-from sqlalchemy import select, text
+from sqlalchemy import delete, select
 
 from app.ai.graph.tracing import Tracer
-from app.db.session import get_engine, get_sessionmaker
+from app.db.models.assessment import AgentRun, AgentStep, Assessment
+from app.db.models.corpus import Circular
+from app.db.models.enums import AssessmentStatus
+from app.db.models.policy import PolicyPack
+from app.db.session import get_sessionmaker
 from app.repositories.agent_runs import AgentRunRepository
 
 
-@pytest.fixture(autouse=True)
-def _fresh_engine() -> None:
-    """Rebuild the async engine on each test's event loop.
-
-    pytest-asyncio gives every test its own loop, but the process-global engine
-    binds its connection pool to whichever loop first touches it. Concurrent
-    cross-session work here would then hit "bound to a different event loop", so
-    we reset the globals and let ``get_engine`` rebuild on the current loop.
-    """
-    import app.db.session as db_session
-
-    db_session._engine = None
-    db_session._sessionmaker = None
-    yield
-    db_session._engine = None
-    db_session._sessionmaker = None
-
-
-async def _database_available() -> bool:
-    try:
-        async with get_engine().connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        return True
-    except Exception:
-        return False
-
-
 @pytest_asyncio.fixture
-async def agent_run_id() -> int:
-    """A throwaway assessment + agent run, torn down afterwards.
+async def agent_run_id(migrated_database: str) -> int:
+    """A throwaway circular, pack, assessment and agent run, torn down afterwards.
 
     Uses its own committed sessions (not the transactional fixture) because the
     whole point is cross-session concurrency: each worker commits independently.
+    It creates its own parent rows so the test never depends on a seeded corpus.
     """
-    if not await _database_available():
-        pytest.skip("PostgreSQL not reachable — concurrency test skipped")
-
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
-        # Reuse whatever circular/policy pack the seeded corpus provides; the FK
-        # targets just need to exist. Fall back to skipping if the corpus is empty.
-        circular_id = (
-            await session.execute(text("SELECT id FROM circulars ORDER BY id LIMIT 1"))
-        ).scalar_one_or_none()
-        pack_id = (
-            await session.execute(text("SELECT id FROM policy_packs ORDER BY id LIMIT 1"))
-        ).scalar_one_or_none()
-        if circular_id is None or pack_id is None:
-            pytest.skip("corpus not seeded — concurrency test skipped")
-
+        circular = Circular(
+            circular_number=f"TEST/CONCURRENCY/{uuid.uuid4().hex[:12]}",
+            title="Concurrency fixture",
+            full_text="Fixture text.",
+        )
+        pack = PolicyPack(name=f"concurrency-{uuid.uuid4().hex[:12]}", version="1")
+        session.add_all([circular, pack])
+        await session.flush()
         assessment = Assessment(
-            circular_id=circular_id,
-            policy_pack_id=pack_id,
+            circular_id=circular.id,
+            policy_pack_id=pack.id,
             status=AssessmentStatus.PENDING,
         )
         session.add(assessment)
         await session.flush()
-        run = AgentRun(assessment_id=assessment.id, status=AssessmentStatus.RUNNING)
+        run = AgentRun(
+            assessment_id=assessment.id, graph_version="test", status=AssessmentStatus.RUNNING
+        )
         session.add(run)
         await session.flush()
         run_pk = run.id
-        assessment_pk = assessment.id
+        circular_pk, pack_pk = circular.id, pack.id
         await session.commit()
 
     yield run_pk
 
     async with sessionmaker() as session:
-        # Cascade deletes the run and its steps.
-        obj = await session.get(Assessment, assessment_pk)
-        if obj is not None:
-            await session.delete(obj)
-            await session.commit()
+        # Deleting the parents cascades to the assessment, run, and steps.
+        await session.execute(delete(Circular).where(Circular.id == circular_pk))
+        await session.execute(delete(PolicyPack).where(PolicyPack.id == pack_pk))
+        await session.commit()
 
 
 _CONCURRENCY = 25
@@ -137,10 +109,14 @@ async def test_concurrent_step_persistence_has_no_collisions(agent_run_id: int) 
 
     async with get_sessionmaker()() as session:
         rows = (
-            await session.execute(
-                select(AgentStep.seq).where(AgentStep.agent_run_id == agent_run_id)
+            (
+                await session.execute(
+                    select(AgentStep.seq).where(AgentStep.agent_run_id == agent_run_id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     assert len(rows) == _CONCURRENCY
     # Every persisted step belongs to this run and carries a unique sequence.

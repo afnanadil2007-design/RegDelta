@@ -12,8 +12,11 @@ work and has to be redone whenever the corpus changes.
 ## Decision
 
 Derive relevance from resolved citations. When circular A's paragraph P cites
-circular B, the author of A made a human relevance judgement: B is relevant to
-what P is about. That yields labels at corpus scale for free.
+circular B, B is taken as relevant to what P is about. In a real corpus that
+reflects an author's judgement; in the synthetic corpus the citations are
+produced by the generator's templates, so the labels are template-derived and
+must not be described as human relevance judgements. Either way the labels
+come at corpus scale for free.
 
 Two subsets, reported separately:
 
@@ -61,10 +64,21 @@ blended number would have hidden.
 
 ## Corpus caveat (important)
 
-The measurements currently in `evaluation/reports/` were taken on a
-**synthetic** corpus (`ingestion/generate_corpus.py`), because sebi.gov.in
-renders circular detail pages client-side and fetching the real corpus needs a
-headless browser this project does not depend on. The pipeline, the metrics,
-and the gold-set construction are real; the documents are not. Every number
-must be read with that caveat, and none of them should be quoted as SEBI
-retrieval performance.
+The measurements are taken on a **synthetic** corpus
+(`ingestion/generate_corpus.py`). The pipeline, the metrics and the gold-set
+construction are real; the documents and their citations are not. None of the
+numbers is SEBI retrieval performance, and none is a floor or a ceiling for
+it: how the pipeline would score on real circulars is unmeasured.
+
+## Revision (2026-10)
+
+- Labels name circulars by number, not by database id, so they survive a
+  re-ingest (`evaluation/datasets/synthetic/retrieval_gold.jsonl`).
+- Every mode answers the same fixed sample (`retrieval_sample.json`, 60
+  citations, 120 queries), and the circular a query was taken from is removed
+  from its own ranking: it contains the query verbatim and is never the cited
+  document.
+- A small real-source corpus (18 official SEBI documents) and an annotation
+  workflow now exist for independent labels. Its candidate labels were drafted
+  by a model and stay *provisional* until a person reviews them; no metric is
+  reported on them before that. See `docs/evaluation.md`.

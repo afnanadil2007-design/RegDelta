@@ -1,0 +1,126 @@
+{
+  "updated": "2026-10-16T20:45:00+05:30",
+  "status": "Correction pass C01-C05 complete locally; release candidate for independent review (v3 package). Open: F07 human reviews, G02 real-provider run, G04 hosted CI, R04 human decision",
+  "phase": "final corrections C01-C05 verified; tested code revision b078808",
+  "repo": "/home/afnan/Downloads/Reg-Delta/RegDelta",
+  "branch": "repair/regdelta-cleanup",
+  "base_sha": "f4a4b57edc5807b5c1ec57072b04db6b8f619ead",
+  "last_code_commit": "b078808",
+  "head": "the docs(maintenance) evidence commit after b078808 (git log -1)",
+  "pushed": false,
+  "dirty_tree": "clean after the evidence commit; git-ignored artefacts under .artifacts/ (logs, audits, screenshots, r2/)",
+  "python_env": "backend/.venv (uv 0.12.5, CPython 3.11.16, torch 2.14.1+cpu)",
+  "node": "nvm 20.20.2 for frontend (matches CI); 22.23.2 for playwright-cli",
+  "services": {
+    "postgres": {
+      "container": "regdelta-repair-pg (label owner=regdelta-repair-session), running",
+      "volume": "regdelta_repair_pgdata",
+      "port": "127.0.0.1:55432",
+      "databases": [
+        "regdelta_demo",
+        "regdelta_test",
+        "regdelta_before",
+        "regdelta_e2e",
+        "regdelta_real",
+        "regdelta_ci",
+        "regdelta_ci2",
+        "regdelta_clone_test",
+        "regdelta_clone_e2e",
+        "regdelta_r2_clone_test",
+        "regdelta_r2_clone_e2e",
+        "regdelta_r2_ci",
+        "regdelta_r2_ci2",
+        "regdelta_r2_final_test",
+        "regdelta_r2_final_ci",
+        "regdelta_r2_final_e2e",
+        "regdelta_c_focus_test",
+        "regdelta_c_reseed_ci",
+        "regdelta_c_reseed_e2e",
+        "regdelta_c_gate_test",
+        "regdelta_c_gate_ci",
+        "regdelta_c_gate_e2e",
+        "regdelta_c_gate2_test",
+        "regdelta_c_gate2_e2e"
+      ],
+      "note": "all disposable; kept, not dropped (no destructive cleanup)"
+    },
+    "app_servers": "none running",
+    "do_not_touch": [
+      "regdelta-postgres-1",
+      "regdelta_pgdata",
+      "ai-trading-*",
+      "jarvis-*",
+      "uvicorn on 0.0.0.0:8000"
+    ],
+    "acceptance_stack": {
+      "compose_project": "regdelta-r2acc",
+      "containers": "removed by make down",
+      "volumes_kept": [
+        "regdelta-r2acc_pgdata",
+        "regdelta-r2acc_modelcache"
+      ],
+      "images": [
+        "regdelta-r2acc-api:latest (d439c4725dd8, 2.52 GB)",
+        "regdelta-r2acc-web:latest (c69017ea8795, 95.5 MB)"
+      ],
+      "ports_when_up": "127.0.0.1 55433/8041/8081"
+    }
+  },
+  "scratch": {
+    "clean_clone": "scratchpad/r2/clean, detached at b078808 (uv-hardlinked venv, npm ci, .env for regdelta-r2acc); clean tracked tree"
+  },
+  "env_for_commands": "PATH=backend/.venv/bin:$PATH POSTGRES_HOST=localhost POSTGRES_PORT=55432 POSTGRES_DB=<db> PYTHONPATH=backend:. HF_HUB_OFFLINE=1; Node 20.20.2 via nvm for the frontend",
+  "next_action": "User uploads RegDelta-review-v3.zip for independent review. Then, external and not done: the real-provider smoke run (exact command in regdelta-correction-report.md section 8), the F07 human reviews, the R04 decision, and an authorised push for hosted CI.",
+  "outstanding_failures": [],
+  "impeccable": {
+    "finish_review": "rounds 1 -> 2 -> 3 (fix) -> confirmation: ship (scored items)",
+    "reviewer_side_effect": "reviewer overwrote .impeccable/questions/roll.json (git-ignored); not restored by this session (the reviewer's write was blocked by the permission check). Original saved at .artifacts/impeccable-roll-original.json; user restores with: cp .artifacts/impeccable-roll-original.json .impeccable/questions/roll.json",
+    "detector": "source 0 findings; live cream-palette on desk (contract-pinned); desk since moved to #E2DED4"
+  },
+  "release_repair": {
+    "task": "focused release repair R01-R11 (follow-up to the 66-item cleanup)",
+    "started": "2026-10-16",
+    "previous_review_revision": "0dc9437 (RegDelta-review.zip beside the repo is a git archive of it)",
+    "progress": {
+      "R01": "verified (container final pass bd1e82d)",
+      "R02": "verified",
+      "R03": "verified",
+      "R04": "blocked: human decision on braces (no patched release) and Python majors",
+      "R05": "verified; human review pending",
+      "R06": "verified",
+      "R07": "verified",
+      "R08": "verified locally; hosted pending",
+      "R09": "verified (native 207f466, container bd1e82d)",
+      "R10": "verified; no screen-reader session",
+      "R11": "package built after the evidence commit"
+    },
+    "resource_identity_at_start": {
+      "regdelta-postgres-1": "id 6cfdea53e355 project=regdelta (working_dir /home/afnan/Downloads/RegDelta), volume regdelta_pgdata, Exited 7 weeks ago",
+      "regdelta-repair-pg": "id 94a9477d008f label owner=regdelta-repair-session, volume regdelta_repair_pgdata, 127.0.0.1:55432, Exited (host reboot)",
+      "port_5432": "ai-trading-postgres (0.0.0.0)",
+      "port_8000": "ai-trading-api (0.0.0.0)"
+    },
+    "constraints": "disk ~5.6 GB free (92%); 7.6 GiB RAM; build images one at a time; no pruning of others' images/cache",
+    "next_action": "independent review of RegDelta-review-v2.zip; then the external steps in the completion report section 7"
+  },
+  "correction_pass": {
+    "task": "final correctness corrections before real-provider validation (C01-C05)",
+    "started": "2026-10-16",
+    "previous_review_package": "RegDelta-review-v2.zip (head bd10a94, code 7602abd)",
+    "progress": {
+      "C01": "verified: one database target from POSTGRES_*; DATABASE_URL refused",
+      "C02": "verified: smoke exit 0 only for a validated COMPLETED run; paid run not executed",
+      "C03": "verified as a mitigation: approved Hub ids at pinned commits only; cache trusted",
+      "C04": "verified: advisories by category from resolver dry runs; reseed changes identified",
+      "C05": "verified: full gate a2ef73f, follow-up gate b078808; package v3"
+    },
+    "commits": [
+      "19fa48f",
+      "7fd3395",
+      "a2ef73f",
+      "ac1e8db",
+      "b078808"
+    ],
+    "tested_code_revision": "b078808"
+  }
+}

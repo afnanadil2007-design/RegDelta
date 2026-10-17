@@ -1,0 +1,61 @@
+name: Research evaluation
+
+# The full four-mode retrieval evaluation on the 300-document synthetic corpus.
+# Slow by nature (the cross-encoder re-scores 50 passages per query on CPU),
+# so it runs only when asked, never as a pull-request gate. Results are kept
+# as an artifact; commit them only after reading them.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: regdelta
+          POSTGRES_PASSWORD: regdelta
+          POSTGRES_DB: regdelta
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U regdelta -d regdelta"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_DB: regdelta_eval
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.lock
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-bge-small-en-v1.5@5c38ec7c-bge-reranker-base@2cfc18c9
+      - name: Install (locked)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.lock --extra-index-url https://download.pytorch.org/whl/cpu
+          pip install -e backend --no-deps
+      - name: Build the demo corpus
+        run: |
+          python -m ingestion.prepare_db
+          python -m ingestion.seed
+      - name: Check the query manifest still matches the corpus
+        run: git diff --exit-code evaluation/datasets/synthetic/retrieval_gold.jsonl
+      - name: Evaluate
+        run: |
+          python -m evaluation.run_eval --label "ci-${GITHUB_SHA::12}"
+          python -m evaluation.run_eval --full-fast --label full-fast
+          python -m evaluation.report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-results
+          path: |
+            evaluation/results/retrieval
+            docs/evaluation-results.md

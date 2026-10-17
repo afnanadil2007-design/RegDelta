@@ -28,18 +28,18 @@ _SEPARATOR = "\n\n"
 # "(a)", "(iv)". Anchored to line start.
 _NUMBERED_START = re.compile(
     r"^\s*(?:"
-    r"\d+(?:\.\d+)*\.?"          # 1.  2.1  3.4.2
-    r"|\([a-z]{1,3}\)"            # (a) (iv)
-    r"|\([0-9]{1,2}\)"            # (1)
+    r"\d+(?:\.\d+)*\.?"  # 1.  2.1  3.4.2
+    r"|\([a-z]{1,3}\)"  # (a) (iv)
+    r"|\([0-9]{1,2}\)"  # (1)
     r")\s+\S"
 )
 
 # Headings: "ANNEXURE", "PART A", or a short all-caps line. Used for heading_path.
 _HEADING = re.compile(
     r"^\s*(?:"
-    r"ANNEX(?:URE)?[\s\-–]*[A-Z0-9]*"   # ANNEXURE, ANNEX-1
-    r"|PART\s+[A-Z0-9]+"                # PART A
-    r"|[A-Z][A-Z \-&,/]{6,}"            # an all-caps title line
+    r"ANNEX(?:URE)?[\s\-–]*[A-Z0-9]*"  # ANNEXURE, ANNEX-1
+    r"|PART\s+[A-Z0-9]+"  # PART A
+    r"|[A-Z][A-Z \-&,/]{6,}"  # an all-caps title line
     r")\s*$"
 )
 
@@ -62,14 +62,41 @@ class SegmentedParagraph:
     text_quality_score: float | None
 
 
+# PDF text layers carry presentation artefacts that break search and quote
+# matching while looking identical on screen. This is deliberately not NFKC,
+# which would also rewrite characters that carry meaning in regulatory text
+# (superscript footnote marks, ½, ™).
+_PRESENTATION_FORMS = str.maketrans(
+    {
+        "\ufb00": "ff",
+        "\ufb01": "fi",
+        "\ufb02": "fl",
+        "\ufb03": "ffi",
+        "\ufb04": "ffl",
+        "\ufb05": "st",
+        "\ufb06": "st",
+        "\u00a0": " ",  # no-break space
+        "\u2007": " ",  # figure space
+        "\u2009": " ",  # thin space
+        "\u202f": " ",  # narrow no-break space
+        "\u00ad": None,  # soft hyphen: a line-break hint, not text
+        "\u200b": None,  # zero-width space
+        "\u200c": None,  # zero-width non-joiner
+        "\u200d": None,  # zero-width joiner
+        "\ufeff": None,  # byte-order mark
+    }
+)
+
+
 def normalise(raw: str) -> str:
     """Normalise page text before any offset is computed.
 
     Applied once, here, so that stored offsets always index the normalised
-    string. Collapses Windows line endings, non-breaking spaces, and runs of
-    blank lines; trims trailing whitespace per line.
+    string: line endings unified, PDF presentation forms resolved (ligatures
+    expanded, soft hyphens and zero-width characters removed, exotic spaces
+    made plain), trailing whitespace trimmed per line, blank runs collapsed.
     """
-    text = raw.replace("\r\n", "\n").replace("\r", "\n").replace(" ", " ")
+    text = raw.replace("\r\n", "\n").replace("\r", "\n").translate(_PRESENTATION_FORMS)
     text = re.sub(r"[ \t]+\n", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
@@ -109,9 +136,7 @@ def split_page_blocks(page_text: str) -> list[str]:
             flush()
             in_table = False
 
-        starts_new_block = (
-            not line.strip() or _NUMBERED_START.match(line) or _HEADING.match(line)
-        )
+        starts_new_block = not line.strip() or _NUMBERED_START.match(line) or _HEADING.match(line)
         if not in_table and starts_new_block:
             flush()
             if not line.strip():

@@ -45,9 +45,7 @@ def estimate_tokens(text: str) -> int:
     return max(1, round(len(text) / _CHARS_PER_TOKEN))
 
 
-def _emit(
-    order_index: int, group: list[SegmentedParagraph]
-) -> Chunk:
+def _emit(order_index: int, group: list[SegmentedParagraph]) -> Chunk:
     text = "\n\n".join(p.text for p in group)
     return Chunk(
         order_index=order_index,
@@ -61,9 +59,7 @@ def _emit(
     )
 
 
-def _overlap_tail(
-    group: list[SegmentedParagraph], overlap_tokens: int
-) -> list[SegmentedParagraph]:
+def _overlap_tail(group: list[SegmentedParagraph], overlap_tokens: int) -> list[SegmentedParagraph]:
     """Trailing whole paragraphs that fit the overlap budget, in order."""
     tail: list[SegmentedParagraph] = []
     budget = overlap_tokens

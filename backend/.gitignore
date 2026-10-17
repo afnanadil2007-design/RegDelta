@@ -1,10 +1,16 @@
 # Local virtualenvs and their loose artifacts. A `python -m venv` run inside
-# backend/ scatters these here; none of them belong in git. The source tree
+# backend/ itself scatters these here (Windows: Include/ Lib/ Scripts/; POSIX:
+# bin/ include/ lib/ lib64); none of them belong in git. The source tree
 # (app/, tests/, alembic/, pyproject.toml …) is NOT ignored.
 .venv/
-Include/
-Lib/
-Scripts/
+/Include/
+/Lib/
+/Scripts/
+/bin/
+/include/
+/lib/
+/lib64
+/share/
 pyvenv.cfg
 
 # Build / tool caches

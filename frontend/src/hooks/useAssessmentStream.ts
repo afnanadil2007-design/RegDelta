@@ -1,69 +1,55 @@
-import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useReducer } from "react";
 
-import type { AgentStep, AssessmentStatus } from "@/types/api";
+import { streamUrl } from "@/api/endpoints";
+import { initialTrace, traceReducer, type TraceState } from "@/hooks/traceReducer";
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
-
-interface StreamState {
-  steps: AgentStep[];
-  status: AssessmentStatus | null;
-  connected: boolean;
-  error: string | null;
-}
+const EVENTS = ["snapshot", "step", "done", "timeout", "error"] as const;
 
 /**
- * Subscribe to an assessment's SSE trace.
+ * Subscribe to a run's live trace while it is in progress.
  *
- * Steps are appended as each graph node completes, so the timeline renders
- * progressively. Duplicate sequence numbers are ignored, which makes a
- * reconnect safe.
+ * EventSource reconnects on its own after a dropped connection; the server
+ * answers every connection with a full snapshot, so nothing is lost or
+ * doubled. When the run ends, the assessment queries are refreshed so the
+ * findings, memo, and usage come from the stored record. Bumping
+ * ``generation`` opens a fresh connection after the server ended the stream.
  */
-export function useAssessmentStream(runId: string | null): StreamState {
-  const [state, setState] = useState<StreamState>({
-    steps: [],
-    status: null,
-    connected: false,
-    error: null,
-  });
-  const seen = useRef<Set<number>>(new Set());
+export function useAssessmentStream(runId: string | null, enabled: boolean, generation = 0): TraceState {
+  const [state, dispatch] = useReducer(traceReducer, initialTrace);
+  const client = useQueryClient();
 
   useEffect(() => {
-    if (!runId) return;
+    if (!runId || !enabled) return;
+    const source = new EventSource(streamUrl(runId));
+    let finished = false;
+    dispatch({ type: "reset" });
 
-    seen.current = new Set();
-    setState({ steps: [], status: null, connected: true, error: null });
-
-    const source = new EventSource(`${API_BASE}/assessments/${runId}/stream`);
-
-    source.addEventListener("step", (event) => {
-      const step = JSON.parse((event as MessageEvent<string>).data) as AgentStep;
-      if (seen.current.has(step.seq)) return;
-      seen.current.add(step.seq);
-      setState((prev) => ({ ...prev, steps: [...prev.steps, step] }));
-    });
-
-    source.addEventListener("done", (event) => {
-      const payload = JSON.parse((event as MessageEvent<string>).data) as {
-        status: AssessmentStatus;
-        error_reason: string | null;
-      };
-      setState((prev) => ({
-        ...prev,
-        status: payload.status,
-        connected: false,
-        error: payload.error_reason,
-      }));
+    source.onopen = () => dispatch({ type: "open" });
+    source.onerror = () => {
+      if (!finished) dispatch({ type: "connection-lost" });
+    };
+    for (const name of EVENTS) {
+      source.addEventListener(name, (event) => {
+        const data = (event as MessageEvent<string>).data;
+        // The browser fires a data-less "error" event on connection loss; only
+        // server-sent errors carry data.
+        if (name === "error" && typeof data !== "string") return;
+        dispatch({ type: "message", event: name, data });
+        if (name === "done" || name === "timeout" || name === "error") {
+          finished = true;
+          source.close();
+          void client.invalidateQueries({ queryKey: ["assessment", runId] });
+          void client.invalidateQueries({ queryKey: ["assessment-steps", runId] });
+          void client.invalidateQueries({ queryKey: ["assessments"] });
+        }
+      });
+    }
+    return () => {
+      finished = true;
       source.close();
-    });
-
-    source.addEventListener("error", () => {
-      // EventSource retries on its own; surface the state without tearing down
-      // the accumulated steps.
-      setState((prev) => ({ ...prev, connected: false }));
-    });
-
-    return () => source.close();
-  }, [runId]);
+    };
+  }, [runId, enabled, client, generation]);
 
   return state;
 }

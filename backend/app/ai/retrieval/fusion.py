@@ -33,9 +33,7 @@ class FusedHit:
     contributions: dict[str, float] = field(default_factory=dict)
 
 
-def reciprocal_rank_fusion(
-    ranked_lists: dict[str, list[int]], k: int = 60
-) -> list[FusedHit]:
+def reciprocal_rank_fusion(ranked_lists: dict[str, list[int]], k: int = 60) -> list[FusedHit]:
     """Fuse named ranked lists of chunk ids into one ranking.
 
     ``ranked_lists`` maps a retriever name ("dense", "lexical") to its ranked

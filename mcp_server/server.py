@@ -1,17 +1,9 @@
-"""MCP server exposing RegDelta's retrieval to any conforming client.
+"""MCP server exposing RegDelta's retrieval to any MCP client.
 
-WHY THIS EXISTS
----------------
-The retrieval capability — a point-in-time-aware, citation-grounded index over
-SEBI circulars — is useful outside this application. An analyst in Claude
-Desktop, an internal agent, or a notebook all want the same three questions
-answered, and none of them want to integrate against a bespoke HTTP API.
-Exposing it over MCP makes the capability consumable by any conforming client
-with no integration code on either side.
-
-It reuses ``app.ai.retrieval.pipeline`` directly — the same code path the HTTP
-API and the evaluation harness use. Duplicating retrieval here would mean the
-MCP surface could drift from the measured one.
+Three tools: passage search, the obligations of one circular, and a
+point-in-time question. They call ``app.ai.retrieval.pipeline`` directly, the
+same code the HTTP API and the evaluation use, so the MCP surface cannot drift
+from what is measured.
 
     python -m mcp_server.server
 """

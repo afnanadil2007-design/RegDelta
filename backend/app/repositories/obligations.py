@@ -39,6 +39,16 @@ class ObligationRepository:
         )
         return list((await self.session.execute(stmt)).scalars())
 
+    async def counts_by_circular(self, circular_ids: list[int]) -> dict[int, int]:
+        if not circular_ids:
+            return {}
+        stmt = (
+            select(Obligation.circular_id, func.count(Obligation.id))
+            .where(Obligation.circular_id.in_(circular_ids))
+            .group_by(Obligation.circular_id)
+        )
+        return {int(cid): int(n) for cid, n in (await self.session.execute(stmt)).all()}
+
     async def count(self) -> int:
         return int((await self.session.execute(select(func.count(Obligation.id)))).scalar_one())
 

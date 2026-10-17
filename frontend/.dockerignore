@@ -1,4 +1,12 @@
+# The build needs package*.json, sources, configs, public/ and the e2e specs
+# (`npm run build` type-checks them). Nothing installed, built or generated.
 node_modules/
 dist/
 .vite/
+test-results/
+playwright-report/
+e2e/__screenshots__/
+coverage/
 *.log
+.env
+.env.*

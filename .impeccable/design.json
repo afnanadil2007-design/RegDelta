@@ -1,0 +1,642 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-15T00:00:00Z",
+  "title": "Design System: RegDelta",
+  "extensions": {
+    "colorMeta": {
+      "desk": {
+        "role": "neutral",
+        "displayName": "Desk",
+        "canonical": "#E2DED4",
+        "tonalRamp": [
+          "oklch(15% 0.014 88.7)",
+          "oklch(25% 0.014 88.7)",
+          "oklch(37% 0.014 88.7)",
+          "oklch(49% 0.014 88.7)",
+          "oklch(61% 0.014 88.7)",
+          "oklch(73% 0.014 88.7)",
+          "oklch(85% 0.014 88.7)",
+          "oklch(95% 0.014 88.7)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Uncoated Paper",
+        "canonical": "#FAF8F3",
+        "tonalRamp": [
+          "oklch(15% 0.007 88.6)",
+          "oklch(25% 0.007 88.6)",
+          "oklch(37% 0.007 88.6)",
+          "oklch(49% 0.007 88.6)",
+          "oklch(61% 0.007 88.6)",
+          "oklch(73% 0.007 88.6)",
+          "oklch(85% 0.007 88.6)",
+          "oklch(95% 0.007 88.6)"
+        ]
+      },
+      "paper-raised": {
+        "role": "neutral",
+        "displayName": "Raised White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "oklch(15% 0.000 89.9)",
+          "oklch(25% 0.000 89.9)",
+          "oklch(37% 0.000 89.9)",
+          "oklch(49% 0.000 89.9)",
+          "oklch(61% 0.000 89.9)",
+          "oklch(73% 0.000 89.9)",
+          "oklch(85% 0.000 89.9)",
+          "oklch(95% 0.000 89.9)"
+        ]
+      },
+      "ink": {
+        "role": "primary",
+        "displayName": "Slate Engraving Ink",
+        "canonical": "#1C2230",
+        "tonalRamp": [
+          "oklch(15% 0.028 266.4)",
+          "oklch(25% 0.028 266.4)",
+          "oklch(37% 0.028 266.4)",
+          "oklch(49% 0.028 266.4)",
+          "oklch(61% 0.028 266.4)",
+          "oklch(73% 0.028 266.4)",
+          "oklch(85% 0.028 266.4)",
+          "oklch(95% 0.028 266.4)"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Slate Soft",
+        "canonical": "#56606E",
+        "tonalRamp": [
+          "oklch(15% 0.026 256.8)",
+          "oklch(25% 0.026 256.8)",
+          "oklch(37% 0.026 256.8)",
+          "oklch(49% 0.026 256.8)",
+          "oklch(61% 0.026 256.8)",
+          "oklch(73% 0.026 256.8)",
+          "oklch(85% 0.026 256.8)",
+          "oklch(95% 0.026 256.8)"
+        ]
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Slate Faint",
+        "canonical": "#7A8391",
+        "tonalRamp": [
+          "oklch(15% 0.024 259.2)",
+          "oklch(25% 0.024 259.2)",
+          "oklch(37% 0.024 259.2)",
+          "oklch(49% 0.024 259.2)",
+          "oklch(61% 0.024 259.2)",
+          "oklch(73% 0.024 259.2)",
+          "oklch(85% 0.024 259.2)",
+          "oklch(95% 0.024 259.2)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#D9D4C8",
+        "tonalRamp": [
+          "oklch(15% 0.017 88.0)",
+          "oklch(25% 0.017 88.0)",
+          "oklch(37% 0.017 88.0)",
+          "oklch(49% 0.017 88.0)",
+          "oklch(61% 0.017 88.0)",
+          "oklch(73% 0.017 88.0)",
+          "oklch(85% 0.017 88.0)",
+          "oklch(95% 0.017 88.0)"
+        ]
+      },
+      "highlight": {
+        "role": "evidence",
+        "displayName": "Highlight",
+        "canonical": "#F1E3B3",
+        "tonalRamp": [
+          "oklch(15% 0.064 93.7)",
+          "oklch(25% 0.064 93.7)",
+          "oklch(37% 0.064 93.7)",
+          "oklch(49% 0.064 93.7)",
+          "oklch(61% 0.064 93.7)",
+          "oklch(73% 0.064 93.7)",
+          "oklch(85% 0.064 93.7)",
+          "oklch(95% 0.064 93.7)"
+        ]
+      },
+      "focus": {
+        "role": "status",
+        "displayName": "Focus Ultramarine",
+        "canonical": "#2840A8",
+        "tonalRamp": [
+          "oklch(15% 0.120 268.1)",
+          "oklch(25% 0.120 268.1)",
+          "oklch(37% 0.120 268.1)",
+          "oklch(49% 0.120 268.1)",
+          "oklch(61% 0.120 268.1)",
+          "oklch(73% 0.120 268.1)",
+          "oklch(85% 0.120 268.1)",
+          "oklch(95% 0.120 268.1)"
+        ]
+      },
+      "error": {
+        "role": "status",
+        "displayName": "Error Crimson",
+        "canonical": "#A3243B",
+        "tonalRamp": [
+          "oklch(15% 0.120 16.3)",
+          "oklch(25% 0.120 16.3)",
+          "oklch(37% 0.120 16.3)",
+          "oklch(49% 0.120 16.3)",
+          "oklch(61% 0.120 16.3)",
+          "oklch(73% 0.120 16.3)",
+          "oklch(85% 0.120 16.3)",
+          "oklch(95% 0.120 16.3)"
+        ]
+      },
+      "error-tint": {
+        "role": "status",
+        "displayName": "Error Tint",
+        "canonical": "#F7E1E5",
+        "tonalRamp": [
+          "oklch(15% 0.025 5.1)",
+          "oklch(25% 0.025 5.1)",
+          "oklch(37% 0.025 5.1)",
+          "oklch(49% 0.025 5.1)",
+          "oklch(61% 0.025 5.1)",
+          "oklch(73% 0.025 5.1)",
+          "oklch(85% 0.025 5.1)",
+          "oklch(95% 0.025 5.1)"
+        ]
+      },
+      "conflict": {
+        "role": "impact",
+        "displayName": "Conflict Vermilion",
+        "canonical": "#B5321C",
+        "tonalRamp": [
+          "oklch(15% 0.120 32.1)",
+          "oklch(25% 0.120 32.1)",
+          "oklch(37% 0.120 32.1)",
+          "oklch(49% 0.120 32.1)",
+          "oklch(61% 0.120 32.1)",
+          "oklch(73% 0.120 32.1)",
+          "oklch(85% 0.120 32.1)",
+          "oklch(95% 0.120 32.1)"
+        ]
+      },
+      "conflict-tint": {
+        "role": "impact",
+        "displayName": "Conflict Tint",
+        "canonical": "#F8E4DF",
+        "tonalRamp": [
+          "oklch(15% 0.023 34.3)",
+          "oklch(25% 0.023 34.3)",
+          "oklch(37% 0.023 34.3)",
+          "oklch(49% 0.023 34.3)",
+          "oklch(61% 0.023 34.3)",
+          "oklch(73% 0.023 34.3)",
+          "oklch(85% 0.023 34.3)",
+          "oklch(95% 0.023 34.3)"
+        ]
+      },
+      "modified": {
+        "role": "impact",
+        "displayName": "Modified Ochre",
+        "canonical": "#8A5F00",
+        "tonalRamp": [
+          "oklch(15% 0.108 77.9)",
+          "oklch(25% 0.108 77.9)",
+          "oklch(37% 0.108 77.9)",
+          "oklch(49% 0.108 77.9)",
+          "oklch(61% 0.108 77.9)",
+          "oklch(73% 0.108 77.9)",
+          "oklch(85% 0.108 77.9)",
+          "oklch(95% 0.108 77.9)"
+        ]
+      },
+      "modified-tint": {
+        "role": "impact",
+        "displayName": "Modified Tint",
+        "canonical": "#F7EDD3",
+        "tonalRamp": [
+          "oklch(15% 0.036 89.4)",
+          "oklch(25% 0.036 89.4)",
+          "oklch(37% 0.036 89.4)",
+          "oklch(49% 0.036 89.4)",
+          "oklch(61% 0.036 89.4)",
+          "oklch(73% 0.036 89.4)",
+          "oklch(85% 0.036 89.4)",
+          "oklch(95% 0.036 89.4)"
+        ]
+      },
+      "new": {
+        "role": "impact",
+        "displayName": "New-Requirement Ultramarine",
+        "canonical": "#2840A8",
+        "tonalRamp": [
+          "oklch(15% 0.120 268.1)",
+          "oklch(25% 0.120 268.1)",
+          "oklch(37% 0.120 268.1)",
+          "oklch(49% 0.120 268.1)",
+          "oklch(61% 0.120 268.1)",
+          "oklch(73% 0.120 268.1)",
+          "oklch(85% 0.120 268.1)",
+          "oklch(95% 0.120 268.1)"
+        ]
+      },
+      "new-tint": {
+        "role": "impact",
+        "displayName": "New-Requirement Tint",
+        "canonical": "#E4E8F7",
+        "tonalRamp": [
+          "oklch(15% 0.021 274.0)",
+          "oklch(25% 0.021 274.0)",
+          "oklch(37% 0.021 274.0)",
+          "oklch(49% 0.021 274.0)",
+          "oklch(61% 0.021 274.0)",
+          "oklch(73% 0.021 274.0)",
+          "oklch(85% 0.021 274.0)",
+          "oklch(95% 0.021 274.0)"
+        ]
+      },
+      "covered": {
+        "role": "impact",
+        "displayName": "Covered Emerald",
+        "canonical": "#0F6E44",
+        "tonalRamp": [
+          "oklch(15% 0.107 157.6)",
+          "oklch(25% 0.107 157.6)",
+          "oklch(37% 0.107 157.6)",
+          "oklch(49% 0.107 157.6)",
+          "oklch(61% 0.107 157.6)",
+          "oklch(73% 0.107 157.6)",
+          "oklch(85% 0.107 157.6)",
+          "oklch(95% 0.107 157.6)"
+        ]
+      },
+      "covered-tint": {
+        "role": "impact",
+        "displayName": "Covered Tint",
+        "canonical": "#DFF0E6",
+        "tonalRamp": [
+          "oklch(15% 0.022 160.2)",
+          "oklch(25% 0.022 160.2)",
+          "oklch(37% 0.022 160.2)",
+          "oklch(49% 0.022 160.2)",
+          "oklch(61% 0.022 160.2)",
+          "oklch(73% 0.022 160.2)",
+          "oklch(85% 0.022 160.2)",
+          "oklch(95% 0.022 160.2)"
+        ]
+      },
+      "none": {
+        "role": "impact",
+        "displayName": "No-Match Sepia",
+        "canonical": "#6B4F3A",
+        "tonalRamp": [
+          "oklch(15% 0.050 58.0)",
+          "oklch(25% 0.050 58.0)",
+          "oklch(37% 0.050 58.0)",
+          "oklch(49% 0.050 58.0)",
+          "oklch(61% 0.050 58.0)",
+          "oklch(73% 0.050 58.0)",
+          "oklch(85% 0.050 58.0)",
+          "oklch(95% 0.050 58.0)"
+        ]
+      },
+      "none-tint": {
+        "role": "impact",
+        "displayName": "No-Match Tint",
+        "canonical": "#EFE8E1",
+        "tonalRamp": [
+          "oklch(15% 0.012 67.7)",
+          "oklch(25% 0.012 67.7)",
+          "oklch(37% 0.012 67.7)",
+          "oklch(49% 0.012 67.7)",
+          "oklch(61% 0.012 67.7)",
+          "oklch(73% 0.012 67.7)",
+          "oklch(85% 0.012 67.7)",
+          "oklch(95% 0.012 67.7)"
+        ]
+      },
+      "ink-hover": {
+        "role": "primary",
+        "displayName": "Ink, Hover",
+        "canonical": "#2C3445",
+        "tonalRamp": [
+          "oklch(15% 0.032 265.0)",
+          "oklch(25% 0.032 265.0)",
+          "oklch(37% 0.032 265.0)",
+          "oklch(49% 0.032 265.0)",
+          "oklch(61% 0.032 265.0)",
+          "oklch(73% 0.032 265.0)",
+          "oklch(85% 0.032 265.0)",
+          "oklch(95% 0.032 265.0)"
+        ]
+      },
+      "ink-pressed": {
+        "role": "primary",
+        "displayName": "Ink, Pressed",
+        "canonical": "#0F141D",
+        "tonalRamp": [
+          "oklch(15% 0.020 262.0)",
+          "oklch(25% 0.020 262.0)",
+          "oklch(37% 0.020 262.0)",
+          "oklch(49% 0.020 262.0)",
+          "oklch(61% 0.020 262.0)",
+          "oklch(73% 0.020 262.0)",
+          "oklch(85% 0.020 262.0)",
+          "oklch(95% 0.020 262.0)"
+        ]
+      },
+      "bar-bright": {
+        "role": "top-bar",
+        "displayName": "Bar Bright",
+        "canonical": "#FFFDF6",
+        "tonalRamp": [
+          "oklch(15% 0.009 93.6)",
+          "oklch(25% 0.009 93.6)",
+          "oklch(37% 0.009 93.6)",
+          "oklch(49% 0.009 93.6)",
+          "oklch(61% 0.009 93.6)",
+          "oklch(73% 0.009 93.6)",
+          "oklch(85% 0.009 93.6)",
+          "oklch(95% 0.009 93.6)"
+        ]
+      },
+      "bar-text": {
+        "role": "top-bar",
+        "displayName": "Bar Text",
+        "canonical": "#E9E5DA",
+        "tonalRamp": [
+          "oklch(15% 0.015 90.2)",
+          "oklch(25% 0.015 90.2)",
+          "oklch(37% 0.015 90.2)",
+          "oklch(49% 0.015 90.2)",
+          "oklch(61% 0.015 90.2)",
+          "oklch(73% 0.015 90.2)",
+          "oklch(85% 0.015 90.2)",
+          "oklch(95% 0.015 90.2)"
+        ]
+      },
+      "bar-muted": {
+        "role": "top-bar",
+        "displayName": "Bar Muted",
+        "canonical": "#C9C3B4",
+        "tonalRamp": [
+          "oklch(15% 0.022 88.7)",
+          "oklch(25% 0.022 88.7)",
+          "oklch(37% 0.022 88.7)",
+          "oklch(49% 0.022 88.7)",
+          "oklch(61% 0.022 88.7)",
+          "oklch(73% 0.022 88.7)",
+          "oklch(85% 0.022 88.7)",
+          "oklch(95% 0.022 88.7)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "page-title": {
+        "displayName": "Page title",
+        "purpose": "PageHeader h1; context line sits underneath, never a label above."
+      },
+      "verdict": {
+        "displayName": "Verdict",
+        "purpose": "The impact word heading the verdict plate, in the impact ink."
+      },
+      "headword": {
+        "displayName": "Headword",
+        "purpose": "Circular number or manual name in a leaf; empty-state titles."
+      },
+      "leaf-title": {
+        "displayName": "Leaf title",
+        "purpose": "Centred title in a guide head, findings-index entries, section heads."
+      },
+      "document": {
+        "displayName": "Document",
+        "purpose": ".doc-text: circular paragraphs, clauses, search passages, memo. max-width 62ch as a ceiling; workspace columns set the shipped line (about 49-57 characters at 1440, 43-50 at 1024)."
+      },
+      "guide-words": {
+        "displayName": "Guide words",
+        "purpose": "Guide-head first/last items, shoulder numbers, the legend plate's title. The only small caps."
+      },
+      "ui-large": {
+        "displayName": "UI large",
+        "purpose": "Verdict rationale, phone menu links."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Controls, tables, notices; tabular figures."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels, legends, table headers."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Hints, tags, top-bar status; the floor, nothing smaller."
+      }
+    },
+    "shadows": [
+      {
+        "name": "float",
+        "value": "0 8px 24px rgb(28 34 48 / 0.16)",
+        "purpose": "Icon-button tooltip only; the one floating layer."
+      },
+      {
+        "name": "plate-inner-rule",
+        "value": "inset 0 0 0 3px <tint>, inset 0 0 0 4px <ink>",
+        "purpose": "Draws the plate's inner hairline (double rule); not depth."
+      },
+      {
+        "name": "quote-underline",
+        "value": "inset 0 -2px 0 var(--ink)",
+        "purpose": "Underline under the highlighted quoted span."
+      },
+      {
+        "name": "active-route",
+        "value": "inset 0 -3px 0 #FFFDF6",
+        "purpose": "Active route underline in the top bar."
+      }
+    ],
+    "motion": [
+      {
+        "name": "travel",
+        "value": "180ms cubic-bezier(0.16, 1, 0.3, 1); transform from the previous line's offset to none (FLIP via Element.animate)",
+        "purpose": "The shoulder arrow and tick travelling to the newly selected mark; skipped under reduced motion."
+      },
+      {
+        "name": "settle",
+        "value": "180ms cubic-bezier(0.16, 1, 0.3, 1); from translateY(-6px) scale(0.9), opacity 0.4",
+        "purpose": "The decision tick settling into the shoulder; the arrow's travel to the next mark uses the same duration and curve."
+      },
+      {
+        "name": "state-colour",
+        "value": "150ms (Tailwind default easing), colour or opacity",
+        "purpose": "Hover/press colour changes on buttons, fields, index entries, nav, tooltip fade."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation-duration and transition-duration 0.01ms !important",
+        "purpose": "Applied to everything under prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "wide",
+        "value": "1440px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ink-filled action; also the saved Accept/Reject state.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>Accept</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 16px; border: 1px solid var(--ink, #1C2230); border-radius: 3px; background: var(--ink, #1C2230); color: var(--paper, #FAF8F3); font: 600 0.875rem/1.45 'Public Sans Variable', system-ui, sans-serif; cursor: pointer; transition: background-color 150ms; } .ds-btn-primary:hover { background: #2C3445; } .ds-btn-primary:active { background: #0F141D; } .ds-btn-primary:focus-visible { outline: 2px solid var(--focus, #2840A8); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The default button: raised white, 1px ink border.",
+      "html": "<button class=\"ds-btn-secondary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18\"/><path d=\"m6 6 12 12\"/></svg>Reject</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 16px; border: 1px solid var(--ink, #1C2230); border-radius: 3px; background: var(--paper-raised, #FFFFFF); color: var(--ink, #1C2230); font: 600 0.875rem/1.45 'Public Sans Variable', system-ui, sans-serif; cursor: pointer; transition: background-color 150ms; } .ds-btn-secondary:hover { background: var(--paper, #FAF8F3); } .ds-btn-secondary:active { background: var(--desk, #E2DED4); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--focus, #2840A8); outline-offset: 2px; }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Borderless secondary action such as Clear or Show the whole circular.",
+      "html": "<button class=\"ds-btn-quiet\">Show the whole circular (11 paragraphs)</button>",
+      "css": ".ds-btn-quiet { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 16px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--ink, #1C2230); font: 600 0.875rem/1.45 'Public Sans Variable', system-ui, sans-serif; cursor: pointer; transition: background-color 150ms; } .ds-btn-quiet:hover { background: var(--paper-raised, #FFFFFF); } .ds-btn-quiet:active { background: var(--desk, #E2DED4); } .ds-btn-quiet:focus-visible { outline: 2px solid var(--focus, #2840A8); outline-offset: 2px; }"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Visible label, raised input with faint border, hint below.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-q\">Query</label><input class=\"ds-input\" id=\"ds-q\" placeholder=\"e.g. in-person verification\"><p class=\"ds-field-hint\">Searches the synthetic corpus.</p></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 4px; font-family: 'Public Sans Variable', system-ui, sans-serif; } .ds-field-label { font-size: 0.8125rem; line-height: 1.4; font-weight: 600; color: var(--ink, #1C2230); } .ds-input { min-height: 36px; padding: 6px 12px; border: 1px solid var(--ink-faint, #7A8391); border-radius: 3px; background: var(--paper-raised, #FFFFFF); color: var(--ink, #1C2230); font: 400 0.875rem/1.45 'Public Sans Variable', system-ui, sans-serif; transition: border-color 150ms; } .ds-input::placeholder { color: var(--ink-soft, #56606E); } .ds-input:hover { border-color: var(--ink, #1C2230); } .ds-input:focus-visible { outline: 2px solid var(--focus, #2840A8); outline-offset: 2px; } .ds-field-hint { margin: 0; font-size: 0.75rem; line-height: 1.4; color: var(--ink-soft, #56606E); }"
+    },
+    {
+      "name": "Top Bar",
+      "kind": "nav",
+      "refersTo": "top-bar",
+      "description": "Ink bar, Charis wordmark, six routes; active route underlined in bar bright.",
+      "html": "<header class=\"ds-bar\"><span class=\"ds-bar-mark\">RegDelta</span><nav class=\"ds-bar-nav\"><a href=\"#\">Overview</a><a href=\"#\">Circulars</a><a href=\"#\">Search</a><a href=\"#\" aria-current=\"page\">Assessments</a><a href=\"#\">Point in time</a><a href=\"#\">Evaluation</a></nav></header>",
+      "css": ".ds-bar { display: flex; align-items: center; gap: 24px; height: 56px; padding: 0 24px; background: var(--ink, #1C2230); color: #E9E5DA; } .ds-bar-mark { font: 700 1.125rem/1.3 'Charis SIL', Georgia, serif; color: #FFFDF6; } .ds-bar-nav { display: flex; align-self: stretch; gap: 4px; } .ds-bar-nav a { display: flex; align-items: center; padding: 0 12px; color: #C9C3B4; text-decoration: none; font: 500 0.875rem/1.45 'Public Sans Variable', system-ui, sans-serif; transition: color 150ms; } .ds-bar-nav a:hover { color: #FFFDF6; } .ds-bar-nav a[aria-current=page] { color: #FFFDF6; box-shadow: inset 0 -3px 0 #FFFDF6; } .ds-bar-nav a:focus-visible { outline: 2px solid #FFFDF6; outline-offset: -2px; }"
+    },
+    {
+      "name": "Impact Tag",
+      "kind": "chip",
+      "refersTo": "impact-tag-conflict",
+      "description": "A small single-ruled plate: the impact word in its ink on its tint.",
+      "html": "<span class=\"ds-tag ds-tag-conflict\">Conflict</span> <span class=\"ds-tag ds-tag-modified\">Modified</span> <span class=\"ds-tag ds-tag-new\">New</span> <span class=\"ds-tag ds-tag-covered\">Covered</span> <span class=\"ds-tag ds-tag-none\">No match</span>",
+      "css": ".ds-tag { display: inline-flex; align-items: center; white-space: nowrap; padding: 1px 6px; border: 1px solid; font: 600 0.75rem/1.4 'Public Sans Variable', system-ui, sans-serif; } .ds-tag-conflict { color: #B5321C; border-color: #B5321C; background: #F8E4DF; } .ds-tag-modified { color: #8A5F00; border-color: #8A5F00; background: #F7EDD3; } .ds-tag-new { color: #2840A8; border-color: #2840A8; background: #E4E8F7; } .ds-tag-covered { color: #0F6E44; border-color: #0F6E44; background: #DFF0E6; } .ds-tag-none { color: #6B4F3A; border-color: #6B4F3A; background: #EFE8E1; }"
+    },
+    {
+      "name": "Verdict Plate",
+      "kind": "card",
+      "refersTo": "plate-modified",
+      "description": "Double-ruled plate holding the machine interpretation, apart from the quote check.",
+      "html": "<div class=\"ds-plate\"><div class=\"ds-plate-head\"><h3>Modified</h3><p>Machine interpretation · Rule-based judge (deterministic demo)</p></div><p class=\"ds-plate-small\">The clause covers this but its specifics differ.</p><p class=\"ds-plate-rationale\">Both texts set a limit in days, but the obligation states 3 days while clause A.3 states (15) calendar days.</p><dl><dt>Quote check</dt><dd>Quotes located</dd><dt>Score</dt><dd>Term overlap 1.00 (rule score)</dd></dl></div>",
+      "css": ".ds-plate { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border: 1.5px solid #8A5F00; background: #F7EDD3; box-shadow: inset 0 0 0 3px #F7EDD3, inset 0 0 0 4px #8A5F00; color: var(--ink, #1C2230); font-family: 'Public Sans Variable', system-ui, sans-serif; } .ds-plate-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; } .ds-plate-head h3 { margin: 0; font: 700 1.375rem/1.25 'Charis SIL', Georgia, serif; color: #8A5F00; } .ds-plate-head p, .ds-plate-small { margin: 0; font-size: 0.8125rem; line-height: 1.4; } .ds-plate-rationale { margin: 0; font-size: 1rem; line-height: 1.45; max-width: 62ch; } .ds-plate dl { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 8px 16px; margin: 0; padding-top: 8px; border-top: 1px solid #8A5F00; font-size: 0.8125rem; } .ds-plate dt { font-weight: 600; } .ds-plate dd { margin: 0; }"
+    },
+    {
+      "name": "Leaf with Shoulder",
+      "kind": "custom",
+      "refersTo": "leaf",
+      "description": "Paper leaf: guide head, shoulder numbers, quoted span with the arrow in the 20px gutter.",
+      "html": "<section class=\"ds-leaf\"><div class=\"ds-guide\"><span class=\"ds-gw\">¶2</span><h2>Circular</h2><span class=\"ds-gw\">¶4</span></div><div class=\"ds-shoulder\"><span class=\"ds-gw ds-num\">¶2</span><p class=\"ds-doc\">Intermediaries shall verify the Permanent Account Number of every client.</p><span class=\"ds-gw ds-num\">¶3</span><p class=\"ds-doc\"><span class=\"ds-arrow\" aria-hidden=\"true\"><svg viewBox=\"0 0 10 12\" width=\"10\" height=\"12\"><path d=\"M0 0 10 6 0 12Z\" fill=\"#1C2230\"/></svg></span><mark class=\"ds-quote\">In-person verification shall be completed within 3 days of account opening.</mark></p></div></section>",
+      "css": ".ds-leaf { display: flex; flex-direction: column; gap: 12px; padding: 16px 20px; background: var(--paper, #FAF8F3); color: var(--ink, #1C2230); } .ds-guide { display: flex; align-items: baseline; gap: 16px; padding-bottom: 6px; border-bottom: 1.5px solid var(--ink, #1C2230); } .ds-guide h2 { flex: 1; margin: 0; text-align: center; font: 700 1rem/1.45 'Charis SIL', Georgia, serif; } .ds-gw { font: 700 0.8125rem/1.4 'Charis SIL', Georgia, serif; font-variant-caps: small-caps; letter-spacing: 0.04em; color: var(--ink-soft, #56606E); } .ds-shoulder { position: relative; display: grid; grid-template-columns: 2.25rem minmax(0,1fr); column-gap: 20px; } .ds-num { padding-top: 2px; text-align: right; } .ds-doc { margin: 0 0 12px; max-width: 62ch; font: 400 1.0625rem/1.6 'Charis SIL', Georgia, serif; } .ds-arrow { position: absolute; left: calc(2.25rem + 5px); margin-top: calc(0.5lh - 6px); pointer-events: none; } .ds-quote { background: var(--highlight, #F1E3B3); color: inherit; box-shadow: inset 0 -2px 0 var(--ink, #1C2230); border-radius: 1px; }"
+    },
+    {
+      "name": "Notice",
+      "kind": "card",
+      "refersTo": "notice-error",
+      "description": "Single-ruled inline message: icon, title, cause, recovery action.",
+      "html": "<div class=\"ds-notice\" role=\"alert\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#A3243B\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\"/><path d=\"M12 9v4\"/><path d=\"M12 17h.01\"/></svg><div><p class=\"ds-notice-title\">The decision was not saved</p><p class=\"ds-notice-body\">The finding still shows its last saved decision.</p></div><button class=\"ds-notice-action\">Try again</button></div>",
+      "css": ".ds-notice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border: 1px solid var(--error, #A3243B); background: var(--error-tint, #F7E1E5); color: var(--ink, #1C2230); font-family: 'Public Sans Variable', system-ui, sans-serif; } .ds-notice svg { flex-shrink: 0; margin-top: 2px; } .ds-notice > div { flex: 1; } .ds-notice-title { margin: 0; font-size: 0.875rem; font-weight: 600; } .ds-notice-body { margin: 2px 0 0; font-size: 0.8125rem; line-height: 1.4; } .ds-notice-action { align-self: center; min-height: 36px; padding: 6px 16px; border: 1px solid var(--ink, #1C2230); border-radius: 3px; background: var(--paper-raised, #FFFFFF); color: var(--ink, #1C2230); font: 600 0.875rem/1.45 'Public Sans Variable', system-ui, sans-serif; cursor: pointer; } .ds-notice-action:hover { background: var(--paper, #FAF8F3); } .ds-notice-action:focus-visible { outline: 2px solid var(--focus, #2840A8); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A law lexicon, worked as a tool",
+    "overview": "Circulars and the policy manual are set as pages of a legal lexicon. Each reading surface is a *leaf* of uncoated paper on a warm grey desk. A guide-word head names what is in view, a *shoulder* column down the outside carries paragraph and clause numbers, and a solid arrow and the analyst's decision tick hang on the line where the evidence starts. Colour sits inside double-ruled *plates* and small ruled tags, and it always appears next to its word.\n\nNavigation, forms, tables and buttons are the standard web controls an analyst already knows. The lexicon supplies type, palette, density and the shoulder, and nothing else. The interface is dense and quiet. Hierarchy comes from tone (desk, then paper, then raised white), from weight and from the serif/sans split, not from shadow. Light theme only (`color-scheme: light`). There is no dark theme in the build.\n\nThe rejected default was a grey console with metric cards and an evidence drawer.",
+    "keyCharacteristics": [
+      "Paper leaves on a desk ground, with square corners and no shadows.",
+      "Charis SIL for documents, headwords and guide words. Public Sans for controls and data, with tabular figures.",
+      "A shoulder (2.25rem) of paragraph and clause numbers. The arrow and tick sit at the first line of the evidence mark.",
+      "Colour appears only in plates, impact tags and notices, and always with a word.",
+      "Quote status, machine interpretation and analyst decision are shown as three separate states, each with words and an icon.",
+      "Two authored motions, both 180ms `cubic-bezier(0.16, 1, 0.3, 1)`: the shoulder arrow and tick travelling to the next quoted line, and the decision tick settling in."
+    ],
+    "rules": [
+      {
+        "name": "The Plate Quarantine Rule",
+        "body": "Impact colour appears only inside a ruled element: a plate, an impact tag, or a notice. It always sits next to the word it codes. Nothing relies on hue alone.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Accent Rule",
+        "body": "No brand accent exists. Ink carries primary actions and ultramarine carries keyboard focus.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Faces Rule",
+        "body": "Charis is for what is read, Public Sans is for what is operated. Identifiers such as circular numbers stay in a text face, never monospace. They may break only after a slash (`Ident`).",
+        "section": "typography"
+      },
+      {
+        "name": "The Measure Is a Ceiling Rule",
+        "body": "`62ch` caps document text but does not set it. In Charis, 62ch comes out at roughly 70 to 72 average characters per line, which is what the full-width memo shows. In the assessment workspace the columns set the line length. At 1440 the leaves run about 49 to 57 characters per line (the text column is about 434px). At 1024 they run about 43 to 50. The two documents sit side by side because that comparison matters more than a longer line.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tone Not Shadow Rule",
+        "body": "Separate surfaces by stepping desk, paper and raised white. Use box-shadow only to draw rules, with the tooltip as the one exception.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Double Rule Rule",
+        "body": "Only plates carry the double rule, because a plate is where interpretation and colour live. Notices and tags stay single-ruled, so they never read as a plate.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** put source text in Charis `.doc-text` inside a leaf, with numbers in a 2.25rem shoulder.",
+      "**Do** name what a leaf shows with a `GuideHead` (first, title, last) rather than a label above a heading.",
+      "**Do** put any interpretation that carries colour inside a double-ruled `Plate`, with the word beside the colour.",
+      "**Do** keep quote status, machine interpretation and analyst decision as three separate, labelled states with an icon each.",
+      "**Do** label synthetic and fictional material with `SyntheticTag` wherever it appears.",
+      "**Do** step tone (desk #E2DED4, paper #FAF8F3, raised #FFFFFF) to separate surfaces.",
+      "**Do** keep secondary text in slate soft (#56606E). It holds 4.75:1 on desk and 6.01:1 on paper.",
+      "**Do** keep selection and filters in the URL so a refresh or shared link restores them."
+    ],
+    "donts": [
+      "**Don't** use slate faint (#7A8391) or rule (#D9D4C8) for text.",
+      "**Don't** use impact ink outside a plate, tag or notice, or without its word.",
+      "**Don't** add shadows to leaves, plates or panels. Box-shadow draws rules here, and the tooltip is the only floating layer.",
+      "**Don't** round leaves, plates, tags or notices.",
+      "**Don't** set any text below 12px, or use small caps anywhere except guide words.",
+      "**Don't** position the shoulder arrow or tick by measuring layout, and don't animate the arrow.",
+      "**Don't** add entrance animations. The arrow's travel and the tick's settle-in are the only authored motions.",
+      "**Don't** show a model score as a percentage or a confidence badge, or show an unknown value as zero.",
+      "**Don't** ship a dark theme unless every state, contrast pair and chart has been verified in it."
+    ]
+  }
+}

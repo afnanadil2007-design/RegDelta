@@ -5,8 +5,10 @@ relevance that a bi-encoder's independent embeddings cannot. It is far too
 slow to run over the corpus, which is why it only ever sees the fused top-N.
 
 ``CrossEncoder.predict`` already applies the model's own activation — for this
-single-label model that is a sigmoid — so it returns calibrated 0..1 relevance
-probabilities. ``RELEVANCE_THRESHOLD`` is expressed on that scale directly.
+single-label model (sentence-transformers 3.x) that is a sigmoid — so scores
+land in (0, 1) and ``RELEVANCE_THRESHOLD`` is expressed on that scale. They
+are *not* calibrated probabilities: no calibration was measured, and the
+threshold was chosen on the synthetic corpus.
 
 Do not add a second sigmoid here. Doing so is monotonic, so ranking (and every
 ablation number) looks unaffected, but it compresses the whole range into
@@ -22,6 +24,7 @@ from typing import TYPE_CHECKING
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.core.model_sources import checked_source
 
 if TYPE_CHECKING:
     from sentence_transformers import CrossEncoder
@@ -34,6 +37,12 @@ log = get_logger("app.ai.retrieval.reranker")
 # quadratically inflate attention cost on CPU.
 _MAX_LENGTH = 512
 _BATCH_SIZE = 16
+# CrossEncoder.predict batches in the order it is given and pads each batch to
+# its longest pair. Sorting by length first was measured and gave no gain here
+# (chunks are 800-1500 characters; evaluation/results/latency/
+# 2026-10-16-rerank-bench), so arrival order, the measured configuration,
+# stays. The switch exists so that benchmark can be rerun.
+SORT_BY_LENGTH = False
 
 _reranker: CrossEncoder | None = None
 _reranker_lock = threading.Lock()
@@ -64,9 +73,22 @@ def get_reranker() -> CrossEncoder:
 
                 configure_torch_threads()
                 settings = get_settings()
-                log.info("reranker.loading", extra={"model": settings.reranker_model})
+                log.info(
+                    "reranker.loading",
+                    extra={
+                        "model": settings.reranker_model,
+                        "revision": settings.reranker_model_revision,
+                    },
+                )
                 _reranker = CrossEncoder(
-                    settings.reranker_model, device="cpu", max_length=_MAX_LENGTH
+                    # Checked again here, just before loading (model_sources).
+                    checked_source(
+                        "reranker", settings.reranker_model, settings.reranker_model_revision
+                    ),
+                    revision=settings.reranker_model_revision,
+                    trust_remote_code=False,
+                    device="cpu",
+                    max_length=_MAX_LENGTH,
                 )
     return _reranker
 
@@ -74,20 +96,20 @@ def get_reranker() -> CrossEncoder:
 def rerank(query: str, passages: list[tuple[int, str]]) -> list[tuple[int, float]]:
     """Score (chunk_id, text) pairs against the query, best first.
 
-    Returns (chunk_id, score) where score is the model's own 0..1 relevance
-    probability, directly comparable to ``RELEVANCE_THRESHOLD``.
+    Returns (chunk_id, score) where score is the model's sigmoid output in
+    (0, 1), on the same scale as ``RELEVANCE_THRESHOLD``.
     """
     if not passages:
         return []
 
     model = get_reranker()
-    pairs = [[query, text] for _, text in passages]
+    order = list(range(len(passages)))
+    if SORT_BY_LENGTH:
+        order.sort(key=lambda i: len(passages[i][1]))
+    pairs = [[query, passages[i][1]] for i in order]
     with _predict_lock:
         scores = model.predict(pairs, batch_size=_BATCH_SIZE, show_progress_bar=False)
 
-    scored = [
-        (chunk_id, float(score))
-        for (chunk_id, _), score in zip(passages, scores, strict=True)
-    ]
+    scored = [(passages[i][0], float(score)) for i, score in zip(order, scores, strict=True)]
     scored.sort(key=lambda pair: (-pair[1], pair[0]))
     return scored

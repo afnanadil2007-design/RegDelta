@@ -1,38 +1,94 @@
-"""Run an assessment: create the records, execute the graph, persist findings.
+"""Run an assessment: create the records, execute the graph, record the outcome.
 
 ``POST /api/assessments`` returns a run_id immediately and this runs in a
-background task, so the wall-clock timeout and the failure paths live here
-rather than in the router.
+background task inside the API process, so the wall-clock limit and every
+failure path live here. Outcomes:
+
+* COMPLETED — the graph finished. ``error_reason`` may carry a note (no
+  obligations to assess, or why the memo is missing).
+* CAPPED — a hard limit stopped the run: the call/token budget, or the wall
+  clock. Findings persisted before the limit are kept.
+* FAILED — a provider configuration error or an unexpected exception. The
+  stored reason is safe to show; technical detail stays in the server log.
+
+Single-process scope: a restart abandons in-flight runs, so startup marks
+anything left PENDING/RUNNING as FAILED (``recover_interrupted_runs``) rather
+than leaving it spinning forever in the UI.
 """
 
 from __future__ import annotations
 
 import asyncio
 import uuid
+from dataclasses import dataclass
 from datetime import date
 
 from app.ai.gateway import GatewayError, LLMGateway
+from app.ai.graph.budget import CallBudget
 from app.ai.graph.build import GRAPH_VERSION, build_graph
 from app.ai.graph.nodes import GraphContext
-from app.ai.graph.state import AssessmentState, impact_of
+from app.ai.graph.state import AssessmentState
 from app.ai.graph.tracing import Tracer
 from app.core.config import Settings, get_settings
 from app.core.logging import bind_run_id, get_logger
-from app.db.models.assessment import AgentRun, Assessment, Finding
+from app.db.models.assessment import AgentRun, Assessment
 from app.db.models.enums import AssessmentStatus
 from app.db.session import get_sessionmaker
 from app.repositories.agent_runs import AgentRunRepository
-from app.repositories.assessments import AssessmentRepository, FindingRepository
+from app.repositories.assessments import AssessmentRepository
 
 log = get_logger("app.services.assessment")
 
+INTERRUPTED_REASON = (
+    "Interrupted: the API process stopped while this assessment was running. "
+    "Findings recorded before then are kept; start a new run to finish it."
+)
+
+
+class AssessmentInProgress(Exception):
+    """A run with the same inputs is already PENDING or RUNNING."""
+
+    def __init__(self, run_id: uuid.UUID) -> None:
+        super().__init__(f"assessment {run_id} is already in progress")
+        self.run_id = run_id
+
+
+class ProviderUnavailable(Exception):
+    """The configured provider cannot run (e.g. its API key is not set)."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+@dataclass(frozen=True)
+class RunOutcome:
+    status: AssessmentStatus
+    detail: str | None
+    memo: str | None = None
+
 
 async def create_assessment(
-    circular_id: int, policy_pack_id: int, as_of: date | None = None
+    circular_id: int,
+    policy_pack_id: int,
+    as_of: date | None = None,
+    *,
+    settings: Settings | None = None,
 ) -> uuid.UUID:
     """Create the assessment and its agent run; return the public run_id."""
+    settings = settings or get_settings()
+    ready, reason = settings.provider_readiness()
+    if not ready:
+        raise ProviderUnavailable(reason or "The assessment provider is not configured.")
+
     async with get_sessionmaker()() as session:
-        assessment = await AssessmentRepository(session).add(
+        assessments = AssessmentRepository(session)
+        await assessments.lock_launch(circular_id, policy_pack_id)
+        active = await assessments.find_active(circular_id, policy_pack_id, as_of)
+        if active is not None:
+            raise AssessmentInProgress(active.run_id)
+
+        assessment = await assessments.add(
             Assessment(
                 circular_id=circular_id,
                 policy_pack_id=policy_pack_id,
@@ -45,6 +101,8 @@ async def create_assessment(
                 assessment_id=assessment.id,
                 graph_version=GRAPH_VERSION,
                 status=AssessmentStatus.PENDING,
+                provider=settings.llm_provider,
+                model=settings.effective_model,
             )
         )
         await session.commit()
@@ -66,120 +124,109 @@ async def run_assessment(run_id: uuid.UUID, settings: Settings | None = None) ->
             log.error("assessment.no_agent_run", extra={"run_id": str(run_id)})
             return
         assessment_id, agent_run_pk = assessment.id, agent_run.id
-        circular_id = assessment.circular_id
-        pack_id = assessment.policy_pack_id
-        as_of = assessment.as_of_date
-
+        initial: AssessmentState = {
+            "assessment_id": assessment.id,
+            "agent_run_id": agent_run.id,
+            "circular_id": assessment.circular_id,
+            "policy_pack_id": assessment.policy_pack_id,
+            "as_of": assessment.as_of_date,
+            "findings": [],
+            "failed_tasks": 0,
+        }
         await AssessmentRepository(session).set_status(assessment_id, AssessmentStatus.RUNNING)
-        agent_run.status = AssessmentStatus.RUNNING
+        await AgentRunRepository(session).set_status(agent_run_pk, AssessmentStatus.RUNNING)
         await session.commit()
 
+    budget = CallBudget(settings.max_assessment_calls, settings.max_assessment_tokens)
     ctx = GraphContext(
-        gateway=LLMGateway(settings), settings=settings, tracer=Tracer(agent_run_pk)
+        gateway=LLMGateway(settings),
+        settings=settings,
+        tracer=Tracer(agent_run_pk),
+        budget=budget,
     )
-    graph = build_graph(ctx)
+    outcome = await _execute(ctx, initial, run_id)
+    await _finish(assessment_id, agent_run_pk, outcome, ctx)
 
-    initial: AssessmentState = {
-        "assessment_id": assessment_id,
-        "agent_run_id": agent_run_pk,
-        "circular_id": circular_id,
-        "policy_pack_id": pack_id,
-        "as_of": as_of,
-        "findings": [],
-        "tokens_used": 0,
-        "cost_usd": 0.0,
-    }
 
+async def _execute(ctx: GraphContext, initial: AssessmentState, run_id: uuid.UUID) -> RunOutcome:
+    timeout = ctx.settings.assessment_timeout_seconds
     try:
-        final = await asyncio.wait_for(
-            graph.ainvoke(initial), timeout=settings.assessment_timeout_seconds
-        )
+        final = await asyncio.wait_for(build_graph(ctx).ainvoke(initial), timeout=timeout)
     except TimeoutError:
-        await _finish(
-            assessment_id,
-            agent_run_pk,
-            AssessmentStatus.FAILED,
-            error=f"Assessment exceeded the {settings.assessment_timeout_seconds}s wall clock.",
+        return RunOutcome(
+            AssessmentStatus.CAPPED,
+            f"Stopped at the {timeout}s wall-clock limit. Findings recorded before then "
+            "are kept; the memo was not written.",
         )
-        return
     except GatewayError as exc:
-        # Provider failures get a short, secret-free reason for the analyst; the
-        # full technical detail stays in the logs.
         log.exception("assessment.failed", extra={"run_id": str(run_id), "code": exc.code})
-        await _finish(
-            assessment_id,
-            agent_run_pk,
-            AssessmentStatus.FAILED,
-            error=f"{exc.human_message} (provider error: {exc.code})",
+        return RunOutcome(
+            AssessmentStatus.FAILED, f"{exc.human_message} (provider error: {exc.code})"
         )
-        return
     except Exception as exc:  # noqa: BLE001 - a failed run is stored, not raised
         log.exception("assessment.failed", extra={"run_id": str(run_id)})
-        await _finish(
-            assessment_id, agent_run_pk, AssessmentStatus.FAILED, error=str(exc)
+        return RunOutcome(
+            AssessmentStatus.FAILED,
+            f"The assessment stopped on an unexpected {type(exc).__name__}. "
+            f"The server log has details for run {run_id}.",
         )
-        return
 
-    await _persist_findings(assessment_id, final)
-    status = AssessmentStatus.CAPPED if final.get("capped") else AssessmentStatus.COMPLETED
-    await _finish(
-        assessment_id,
-        agent_run_pk,
-        status,
-        error=final.get("cap_reason"),
-        memo=final.get("memo"),
-        tokens=int(final.get("tokens_used", 0)),
-        cost=float(final.get("cost_usd", 0.0)),
-    )
-
-
-async def _persist_findings(assessment_id: int, final: AssessmentState) -> None:
-    drafts = [f for f in final.get("findings", []) if f.get("verified")]
-    if not drafts:
-        return
-    async with get_sessionmaker()() as session:
-        await FindingRepository(session).add_all(
-            [
-                Finding(
-                    assessment_id=assessment_id,
-                    obligation_id=d["obligation_id"],
-                    policy_clause_id=d.get("policy_clause_id"),
-                    impact_type=impact_of(d["impact_type"]),
-                    rationale=d["rationale"],
-                    confidence=float(d.get("confidence", 0.0)),
-                    circular_span_start=d.get("circular_span_start"),
-                    circular_span_end=d.get("circular_span_end"),
-                    clause_span_start=d.get("clause_span_start"),
-                    clause_span_end=d.get("clause_span_end"),
-                    verified=True,
-                    verification_attempts=int(d.get("verification_attempts", 1)),
-                )
-                for d in drafts
-            ]
+    if ctx.budget.exhausted:
+        return RunOutcome(
+            AssessmentStatus.CAPPED,
+            f"{ctx.budget.exhausted_reason} Findings recorded before the limit are kept; "
+            "the memo was not written.",
         )
-        await session.commit()
+    if not final.get("obligations"):
+        return RunOutcome(
+            AssessmentStatus.COMPLETED,
+            "This circular has no extracted obligations, so there was nothing to assess.",
+        )
+    return RunOutcome(AssessmentStatus.COMPLETED, final.get("memo_note"), final.get("memo"))
 
 
 async def _finish(
-    assessment_id: int,
-    agent_run_pk: int,
-    status: AssessmentStatus,
-    *,
-    error: str | None = None,
-    memo: str | None = None,
-    tokens: int = 0,
-    cost: float = 0.0,
+    assessment_id: int, agent_run_pk: int, outcome: RunOutcome, ctx: GraphContext
 ) -> None:
+    budget = ctx.budget
     async with get_sessionmaker()() as session:
-        assessments = AssessmentRepository(session)
-        await assessments.set_status(assessment_id, status, error_reason=error)
-        if memo:
-            await assessments.set_memo(assessment_id, memo)
-        if tokens or cost:
-            await assessments.record_usage(assessment_id, tokens, cost)
-        await AgentRunRepository(session).finish(agent_run_pk, status, error=error)
+        await AssessmentRepository(session).finish(
+            assessment_id,
+            outcome.status,
+            detail=outcome.detail,
+            memo=outcome.memo,
+            tokens=budget.tokens,
+            cost_usd=budget.cost_usd,
+            unpriced_calls=budget.unpriced_calls,
+            failed_tasks=ctx.failed_tasks,
+        )
+        await AgentRunRepository(session).finish(
+            agent_run_pk,
+            outcome.status,
+            error=outcome.detail if outcome.status is not AssessmentStatus.COMPLETED else None,
+            tokens=budget.tokens,
+            cost_usd=budget.cost_usd,
+        )
         await session.commit()
     log.info(
         "assessment.finished",
-        extra={"status": status.value, "tokens": tokens, "cost_usd": round(cost, 4)},
+        extra={
+            "status": outcome.status.value,
+            "calls": budget.calls,
+            "tokens": budget.tokens,
+            "cost_usd": round(budget.cost_usd, 6),
+            "unpriced_calls": budget.unpriced_calls,
+            "failed_tasks": ctx.failed_tasks,
+        },
     )
+
+
+async def recover_interrupted_runs() -> int:
+    """Fail runs a previous process left PENDING/RUNNING. Returns how many."""
+    async with get_sessionmaker()() as session:
+        assessment_ids = await AssessmentRepository(session).fail_unfinished(INTERRUPTED_REASON)
+        await AgentRunRepository(session).fail_unfinished(INTERRUPTED_REASON)
+        await session.commit()
+    if assessment_ids:
+        log.warning("assessment.interrupted_runs_failed", extra={"count": len(assessment_ids)})
+    return len(assessment_ids)

@@ -40,10 +40,18 @@ class CircularMeta:
     source_url: str | None = None
 
 
+class IngestConflict(ValueError):
+    """The circular number is already stored, from a file with different bytes."""
+
+
 @dataclass
 class IngestReport:
     ingested: list[str] = field(default_factory=list)
+    # Same file already ingested (matching checksum): nothing to do.
     skipped: list[str] = field(default_factory=list)
+    # Same circular number, different file: needs a human decision, never a
+    # silent overwrite or a second copy.
+    conflicts: list[tuple[str, str]] = field(default_factory=list)
     failed: list[tuple[str, str]] = field(default_factory=list)
     vision_pages: int = 0
     total_pages: int = 0
@@ -112,7 +120,11 @@ async def ingest_pdf(
     settings: Settings | None = None,
     gateway: LLMGateway | None = None,
 ) -> Circular | None:
-    """Ingest one PDF. Returns None when it was already ingested (by checksum)."""
+    """Ingest one PDF. Returns None when it was already ingested (by checksum).
+
+    Raises IngestConflict when the circular number is already stored from a
+    different file: a re-issued or corrected PDF must be replaced deliberately.
+    """
     settings = settings or get_settings()
     circulars = CircularRepository(session)
 
@@ -120,6 +132,13 @@ async def ingest_pdf(
     if await circulars.get_by_checksum(checksum) is not None:
         log.info("ingest.skip_duplicate", extra={"pdf": str(pdf_path)})
         return None
+    existing = await circulars.get_by_number(meta.circular_number)
+    if existing is not None:
+        raise IngestConflict(
+            f"{meta.circular_number} is already ingested from a different file "
+            f"(stored checksum {(existing.checksum or 'unknown')[:12]}…, this file "
+            f"{checksum[:12]}…). Remove the stored circular to replace it."
+        )
 
     page_inputs, vision_used = build_pages(pdf_path, settings, gateway)
     full_text, segmented = segment_pages(page_inputs)
@@ -216,9 +235,7 @@ async def ingest_batch(
 
     for pdf_path, meta in items:
         try:
-            circular = await ingest_pdf(
-                session, pdf_path, meta, settings=settings, gateway=gateway
-            )
+            circular = await ingest_pdf(session, pdf_path, meta, settings=settings, gateway=gateway)
             if circular is None:
                 report.skipped.append(meta.circular_number)
                 continue
@@ -226,12 +243,19 @@ async def ingest_batch(
             report.ingested.append(meta.circular_number)
             report.total_pages += circular.page_count
             report.vision_pages += circular.vision_page_count
+        except IngestConflict as exc:
+            await session.rollback()
+            log.warning("ingest.conflict", extra={"circular_number": meta.circular_number})
+            report.conflicts.append((meta.circular_number, str(exc)))
         except Exception as exc:  # noqa: BLE001 - one bad PDF must not abort the batch
             await session.rollback()
             log.error(
                 "ingest.failed",
-                extra={"pdf": str(pdf_path), "circular_number": meta.circular_number,
-                       "error": str(exc)},
+                extra={
+                    "pdf": str(pdf_path),
+                    "circular_number": meta.circular_number,
+                    "error": str(exc),
+                },
             )
             report.failed.append((meta.circular_number, str(exc)))
 
@@ -240,6 +264,7 @@ async def ingest_batch(
         extra={
             "ingested": len(report.ingested),
             "skipped": len(report.skipped),
+            "conflicts": len(report.conflicts),
             "failed": len(report.failed),
             "vision_fraction": round(report.vision_fraction, 3),
         },

@@ -24,7 +24,9 @@ class ExtractedObligation(BaseModel):
     modality: Literal["shall", "must", "may", "should"] | None = None
     deadline: str | None = None
     condition: str | None = None
-    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    # The model's own score; left None when the model gives none rather than
+    # inventing a midpoint.
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
 
     @field_validator("text")
     @classmethod

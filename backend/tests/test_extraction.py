@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pymupdf
 import pytest
-from app.db.models.enums import ExtractionMethod
 
 from app.ai.extraction.chunking import chunk_paragraphs, estimate_tokens
 from app.ai.extraction.pdf import extract_pages, render_page_png
 from app.ai.extraction.segment import normalise, segment_pages, split_page_blocks
+from app.db.models.enums import ExtractionMethod
 from tests.fixtures import ALL_FIXTURES, write_fixture_pdf, write_scanned_pdf
 
 PAGE_ONE = """SEBI/HO/MIRSD/CIR/P/2024/17
@@ -212,9 +212,7 @@ def test_extract_pages_routes_each_page_independently(tmp_path: Path) -> None:
 def test_all_fixtures_round_trip_through_extraction(fixture, tmp_path: Path) -> None:
     pdf = write_fixture_pdf(fixture, tmp_path)
     pages = extract_pages(str(pdf), quality_threshold=0.15)
-    inputs = [
-        (p.page_number, p.text, ExtractionMethod.TEXT, p.text_quality_score) for p in pages
-    ]
+    inputs = [(p.page_number, p.text, ExtractionMethod.TEXT, p.text_quality_score) for p in pages]
     full_text, paragraphs = segment_pages(inputs)
     assert paragraphs
     for para in paragraphs:

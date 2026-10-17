@@ -99,8 +99,10 @@ the guard test in `backend/tests/test_retrieval.py`.
 
 **Read:** `evaluation/build_gold_set.py`, then `evaluation/metrics/retrieval.py`.
 
-Labels are free at corpus scale: when circular A's paragraph cites circular B,
-that is a human relevance judgement already in the text. Two subsets are
+Labels come free at corpus scale: when circular A's paragraph cites circular
+B, B is taken as relevant to that paragraph. In the synthetic corpus those
+citations are written by the generator's templates, so the labels are
+template-derived, not independent human judgements. Two subsets are
 reported separately — **semantic** (the citing prose, reference stripped) and
 **identifier** (the raw reference string) — because a blended number hides that
 either retriever alone fails half the workload.
@@ -116,8 +118,10 @@ Every LLM and vision call goes through this one module — no other file
 constructs a provider client. That is what makes retries, model pinning, token
 counting, cost accounting, and per-`run_id` logging exist in exactly one place.
 
-Two providers are wired: **Groq** (default; Groq's OpenAI-compatible endpoint
-driven through the `openai` client) and **Anthropic**. Look at `_call_groq` /
+Three providers are wired: **deterministic** (the default: rule-based, offline,
+labelled as a demo judge; see `ai/deterministic.py`), **Groq** (its
+OpenAI-compatible endpoint driven through the `openai` client) and
+**Anthropic**. Look at `_call_groq` /
 `_call_anthropic` for the per-provider request translation, `_openai_strict_schema`
 for how a Pydantic JSON schema is adapted to OpenAI-compatible strict structured
 output, and `GatewayError.code` for the typed failure taxonomy (missing key,
@@ -146,9 +150,10 @@ Because those workers write the same state key concurrently, `findings` is
 wins.
 
 `verify_grounding` is the part worth studying: it re-resolves both quoted spans
-against the source, and a claim whose quote cannot be found is dropped rather
-than stored. That is grounding enforced programmatically, not requested politely
-in a prompt.
+against the source. A finding whose quote cannot be found is stored as
+`FAILED`, with the quote that was not found, and is never shown as verified.
+That is grounding enforced programmatically, not requested politely in a
+prompt, and it proves the quoted text exists, not that the verdict is right.
 
 ## 8. The edges
 
@@ -156,9 +161,9 @@ in a prompt.
   `backend/app/routers/search.py` against `backend/app/services/search.py` to
   see exactly where the line sits.
 - `mcp_server/` — exposes retrieval to any MCP client.
-- `frontend/src/pages/` — start with `frontend/src/pages/Search.tsx` (shows
-  per-retriever ranks) and `frontend/src/pages/ImpactAssessment.tsx` (renders
-  the agent trace progressively over SSE).
+- `frontend/src/pages/` — start with `AssessmentWorkspace.tsx` and
+  `components/assessment/` (evidence placed at stored offsets, the decision
+  bar, the live trace via `hooks/traceReducer.ts`), then `Search.tsx`.
 
 ---
 
@@ -166,16 +171,19 @@ in a prompt.
 
 The project is not above criticism, and these are the honest weak points:
 
-- **The corpus is synthetic.** sebi.gov.in renders circular detail pages
-  client-side. Every measurement is a valid comparison *between modes on a fixed
-  corpus*, not an estimate of real-world quality. The semantic subset tops out
-  at 0.400 partly because 300 documents from 8 templates are genuinely
-  near-duplicates.
-- **The ablation samples 50 queries**, not all 1,324, because the cross-encoder
-  costs ~20s per query on CPU.
+- **The corpus is synthetic.** Every measurement is a valid comparison
+  *between modes on a fixed corpus*, not an estimate of real-world quality,
+  and 300 documents from 8 templates contain many near-duplicates. A small
+  official SEBI corpus exists for future evaluation, with provisional labels
+  awaiting human review.
+- **The reranked mode is measured on a fixed sample** (120 labelled queries
+  plus a 30-question refusal suite), because the cross-encoder costs a median
+  of 56 s per query on the evaluation laptop's CPU; the fast modes also run on
+  all 1,324.
 - **Groundedness layer 2** (LLM judge with Cohen's κ) is implemented but never
   run — it needs a provider key and human labels.
-- **The agent has never run end-to-end against a real model** in this
-  environment, for the same reason.
+- **The agent has not run end-to-end against a real model** in this
+  environment (no provider key); every recorded run used the deterministic
+  judge, and says so.
 - **No authentication**, deliberately. Stated in the README so nobody deploys it
   assuming otherwise.

@@ -16,6 +16,7 @@ and an LLM pass (``resolve_ambiguous``) can be run over just those.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -154,7 +155,14 @@ async def build_graph_for_circular(
 
 
 async def build_graph(session: AsyncSession) -> GraphReport:
-    """Rebuild the citation graph across the whole corpus."""
+    """Rebuild the citation graph across the whole corpus.
+
+    A rebuild, not an append: existing edges are deleted in the same
+    transaction, so running it twice yields the same graph rather than
+    duplicate edges.
+    """
+    await CitationRepository(session).delete_all()
+    await SupersessionRepository(session).delete_all()
     by_number, by_date = await _build_lookup(session)
     report = GraphReport()
 
@@ -178,7 +186,9 @@ async def build_graph(session: AsyncSession) -> GraphReport:
     return report
 
 
-async def _stamp_effective_dates(session: AsyncSession, circular_id: int, issue_date) -> None:
+async def _stamp_effective_dates(
+    session: AsyncSession, circular_id: int, issue_date: date | None
+) -> None:
     """Give each new supersession edge the superseding circular's issue date."""
     if issue_date is None:
         return

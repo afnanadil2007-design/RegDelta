@@ -1,206 +1,315 @@
-"""Stage 9 tests: graph topology, state reducers, limits, and grounding."""
+"""Assessment graph: topology, reducers, limits, and the judge/verify worker."""
 
 from __future__ import annotations
 
+import json
 import operator
-from typing import get_args, get_origin, get_type_hints
+import threading
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Any, get_args, get_origin, get_type_hints
 
 import pytest
-from app.db.models.enums import ImpactType
 
-from app.ai.extraction.schemas import JudgedImpact
-from app.ai.gateway import LLMGateway
+from app.ai.gateway import GatewayError, LLMResponse
+from app.ai.graph.budget import BudgetExhausted, CallBudget
 from app.ai.graph.build import GRAPH_VERSION, build_graph
-from app.ai.graph.nodes import GraphContext, _verify, fan_out
+from app.ai.graph.nodes import (
+    GraphContext,
+    RankedClause,
+    _no_candidate_draft,
+    fan_out,
+    judge_and_verify,
+)
 from app.ai.graph.state import AssessmentState, ObligationTask, impact_of
-from app.ai.graph.tracing import Tracer
-from app.core.config import get_settings
+from app.ai.graph.tracing import StepRecord
+from app.core.config import Settings
+from app.db.models.enums import ImpactType, QuoteStatus
+
+# --- fakes ------------------------------------------------------------------
 
 
-def _ctx() -> GraphContext:
-    settings = get_settings()
-    return GraphContext(LLMGateway(settings), settings, Tracer(1))
+class ScriptedGateway:
+    """Returns queued responses (or raises queued errors) and records prompts."""
+
+    def __init__(self, *script: str | Exception) -> None:
+        self.script = list(script)
+        self.prompts: list[str] = []
+
+    def complete(self, prompt: str, **_: Any) -> LLMResponse:
+        self.prompts.append(prompt)
+        item = self.script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        refused = item == "<refused>"
+        return LLMResponse(
+            text="" if refused else item,
+            model="scripted",
+            provider="scripted",
+            tokens_in=10,
+            tokens_out=5,
+            cost_usd=None,
+            latency_ms=1,
+            refused=refused,
+        )
 
 
-# --- state ---------------------------------------------------------------
+class MemoryTracer:
+    """Records steps in memory instead of the database."""
+
+    def __init__(self) -> None:
+        self.steps: list[tuple[str, StepRecord]] = []
+
+    @asynccontextmanager
+    async def step(
+        self, node: str, inputs: dict[str, Any] | None = None
+    ) -> AsyncIterator[StepRecord]:
+        record = StepRecord(step_id=len(self.steps) + 1)
+        self.steps.append((node, record))
+        yield record
 
 
-def test_findings_uses_an_additive_reducer() -> None:
-    """Workers write `findings` concurrently; without operator.add they clobber."""
-    hints = get_type_hints(AssessmentState, include_extras=True)
-    annotated = hints["findings"]
-    assert get_origin(annotated) is not None
-    assert operator.add in get_args(annotated), (
-        "findings must be Annotated[list, operator.add] or concurrent worker "
-        "writes will overwrite one another"
+def _ctx(gateway: Any, *, max_calls: int = 100, retries: int = 2) -> GraphContext:
+    settings = Settings(_env_file=None, max_verification_retries=retries)  # type: ignore[call-arg]
+    return GraphContext(
+        gateway=gateway,
+        settings=settings,
+        tracer=MemoryTracer(),  # type: ignore[arg-type]
+        budget=CallBudget(max_calls=max_calls, max_tokens=1_000_000),
     )
 
 
-def test_token_and_cost_counters_also_accumulate() -> None:
-    hints = get_type_hints(AssessmentState, include_extras=True)
-    for key in ("tokens_used", "cost_usd"):
-        assert operator.add in get_args(hints[key]), f"{key} must accumulate"
-
-
-def test_impact_of_falls_back_to_no_match() -> None:
-    assert impact_of("CONFLICT") is ImpactType.CONFLICT
-    assert impact_of("NOT_A_REAL_VERDICT") is ImpactType.NO_MATCH
-
-
-# --- topology ------------------------------------------------------------
-
-
-def test_graph_has_the_specified_nodes() -> None:
-    graph = build_graph(_ctx()).get_graph()
-    nodes = set(graph.nodes)
-    assert {"plan_assessment", "assess_obligation", "synthesize_memo"} <= nodes
-
-
-def test_graph_version_is_pinned() -> None:
-    """Traces stay interpretable only if the topology version is recorded."""
-    assert GRAPH_VERSION
-
-
-def test_fan_out_emits_one_send_per_obligation() -> None:
-    state: AssessmentState = {
-        "policy_pack_id": 1,
-        "obligations": [
-            ObligationTask(obligation_id=1, text="a", actor=None, char_start=0, char_end=1),
-            ObligationTask(obligation_id=2, text="b", actor=None, char_start=2, char_end=3),
-        ],
+def _verdict(**overrides: Any) -> str:
+    body = {
+        "impact_type": "MODIFIED",
+        "rationale": "The clause sets T+2 days where the obligation requires T+1 day.",
+        "confidence": 0.8,
+        "circular_span": "shall report short-collection",
+        "clause_span": "reported to the Stock Exchange by T+2 days",
     }
-    sends = fan_out(state)
-    assert len(sends) == 2
-    assert {s.node for s in sends} == {"assess_obligation"}
+    body.update(overrides)
+    return json.dumps(body)
 
 
-def test_fan_out_with_no_obligations_is_empty() -> None:
-    assert fan_out({"obligations": [], "policy_pack_id": 1}) == []
-
-
-# --- grounding verification ---------------------------------------------
-
-
-_TASK = ObligationTask(
+TASK = ObligationTask(
     obligation_id=7,
-    text="Stock brokers shall collect upfront margin before accepting orders.",
+    text="Stock brokers shall report short-collection of margin by T+1 day.",
     actor="Stock brokers",
     char_start=1000,
     char_end=1066,
 )
-_CLAUSE = {
-    "id": 3,
-    "clause_number": "C.1",
-    "text": "Upfront margin shall be collected from clients before the acceptance of orders.",
-    "char_start": 500,
-}
+CLAUSE = RankedClause(
+    id=3,
+    clause_number="C.3",
+    text="### C.3 Short-collection reporting\nInstances shall be reported to the Stock "
+    "Exchange by T+2 days.",
+    char_start=500,
+    score=0.9,
+)
 
 
-def test_verification_accepts_verbatim_quotes() -> None:
-    judged = JudgedImpact(
-        impact_type=ImpactType.ALREADY_COVERED,
-        rationale="The clause already requires upfront margin before order acceptance.",
-        confidence=0.9,
-        circular_span="shall collect upfront margin",
-        clause_span="Upfront margin shall be collected",
-    )
-    draft, problem = _verify(_TASK, _CLAUSE, judged, attempts=1)
-    assert problem is None
-    assert draft is not None
-    assert draft["verified"] is True
-    # Offsets are resolved into full-text coordinates, not paragraph-relative.
-    assert draft["circular_span_start"] >= _TASK["char_start"]
-    assert draft["clause_span_start"] >= _CLAUSE["char_start"]
+# --- state and topology ------------------------------------------------------
 
 
-def test_verification_rejects_a_hallucinated_circular_quote() -> None:
-    judged = JudgedImpact(
-        impact_type=ImpactType.CONFLICT,
-        rationale="This rationale is long enough to satisfy the schema constraint.",
-        confidence=0.8,
-        circular_span="brokers shall waive all margin requirements",
-        clause_span="Upfront margin shall be collected",
-    )
-    draft, problem = _verify(_TASK, _CLAUSE, judged, attempts=1)
-    assert draft is None
-    assert problem is not None and "circular_span" in problem
+def test_concurrently_written_keys_use_additive_reducers() -> None:
+    """Workers write these keys concurrently; without operator.add they clobber."""
+    hints = get_type_hints(AssessmentState, include_extras=True)
+    for key in ("findings", "failed_tasks"):
+        assert get_origin(hints[key]) is not None
+        assert operator.add in get_args(hints[key]), f"{key} must accumulate"
 
 
-def test_verification_rejects_a_hallucinated_clause_quote() -> None:
-    judged = JudgedImpact(
-        impact_type=ImpactType.MODIFIED,
-        rationale="This rationale is long enough to satisfy the schema constraint.",
-        confidence=0.8,
-        circular_span="shall collect upfront margin",
-        clause_span="margin is optional for retail clients",
-    )
-    draft, problem = _verify(_TASK, _CLAUSE, judged, attempts=1)
-    assert draft is None
-    assert problem is not None and "clause_span" in problem
+def test_impact_of_rejects_an_unknown_verdict() -> None:
+    assert impact_of("CONFLICT") is ImpactType.CONFLICT
+    with pytest.raises(ValueError):
+        impact_of("NOT_A_REAL_VERDICT")
 
 
-def test_no_match_does_not_require_a_clause_quote() -> None:
-    judged = JudgedImpact(
-        impact_type=ImpactType.NO_MATCH,
-        rationale="The clause concerns record retention, not margin collection.",
-        confidence=0.6,
-        circular_span="shall collect upfront margin",
-        clause_span="",
-    )
-    draft, problem = _verify(_TASK, _CLAUSE, judged, attempts=1)
-    assert problem is None
-    assert draft is not None
-    assert draft["clause_span_start"] is None
+def test_graph_has_the_specified_nodes() -> None:
+    graph = build_graph(_ctx(ScriptedGateway())).get_graph()
+    assert {"plan_assessment", "assess_obligation", "synthesize_memo"} <= set(graph.nodes)
 
 
-def test_verification_records_the_attempt_count() -> None:
-    judged = JudgedImpact(
-        impact_type=ImpactType.ALREADY_COVERED,
-        rationale="The clause already requires upfront margin before order acceptance.",
-        confidence=0.9,
-        circular_span="shall collect upfront margin",
-        clause_span="Upfront margin shall be collected",
-    )
-    draft, _ = _verify(_TASK, _CLAUSE, judged, attempts=3)
-    assert draft is not None
-    assert draft["verification_attempts"] == 3
+def test_graph_version_is_recorded() -> None:
+    assert GRAPH_VERSION == "v3"
 
 
-# --- hard limits ---------------------------------------------------------
+def test_fan_out_emits_one_send_per_obligation() -> None:
+    state: AssessmentState = {
+        "assessment_id": 5,
+        "policy_pack_id": 1,
+        "obligations": [TASK, {**TASK, "obligation_id": 8}],
+    }
+    sends = fan_out(state)
+    assert [s.node for s in sends] == ["assess_obligation", "assess_obligation"]
+    assert all(s.arg["assessment_id"] == 5 for s in sends)
+
+
+def test_fan_out_with_no_obligations_is_empty() -> None:
+    assert fan_out({"obligations": [], "policy_pack_id": 1, "assessment_id": 1}) == []
+
+
+# --- judge and verify ---------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_token_cap_halts_before_synthesis() -> None:
-    """A capped run keeps its findings and is marked, not failed."""
-    from app.ai.graph.build import _check_token_cap
+async def test_verbatim_quotes_are_verified_in_full_text_coordinates() -> None:
+    ctx = _ctx(ScriptedGateway(_verdict()))
+    outcome = await judge_and_verify(TASK, CLAUSE, ctx)
 
-    ctx = _ctx()
-    over = {"tokens_used": ctx.settings.max_assessment_tokens + 1}
-    result = await _check_token_cap(over, ctx)
-    assert result["capped"] is True
-    assert "cap" in (result["cap_reason"] or "").lower()
+    draft = outcome.draft
+    assert draft is not None and not outcome.failed
+    assert draft["quote_status"] == QuoteStatus.VERIFIED.value
+    assert draft["verification_attempts"] == 1
+    start, end = draft["circular_span_start"], draft["circular_span_end"]
+    assert TASK["text"][start - TASK["char_start"] : end - TASK["char_start"]] == (
+        "shall report short-collection"
+    )
+    local = draft["clause_span_start"] - CLAUSE.char_start
+    assert CLAUSE.text[local:].startswith("reported to the Stock Exchange")
 
-    under = {"tokens_used": 0}
-    assert (await _check_token_cap(under, ctx))["capped"] is False
+
+@pytest.mark.asyncio
+async def test_a_grounding_failure_is_retried_with_feedback() -> None:
+    gateway = ScriptedGateway(_verdict(circular_span="brokers may skip reporting"), _verdict())
+    outcome = await judge_and_verify(TASK, CLAUSE, _ctx(gateway))
+
+    assert outcome.draft is not None
+    assert outcome.draft["quote_status"] == QuoteStatus.VERIFIED.value
+    assert outcome.draft["verification_attempts"] == 2
+    assert "Previous attempt was not grounded" in gateway.prompts[1]
+
+
+@pytest.mark.asyncio
+async def test_quotes_that_never_resolve_are_kept_as_unverified_not_dropped() -> None:
+    bad = _verdict(clause_span="margin is optional for retail clients")
+    outcome = await judge_and_verify(TASK, CLAUSE, _ctx(ScriptedGateway(bad, bad, bad)))
+
+    draft = outcome.draft
+    assert draft is not None and not outcome.failed
+    assert draft["quote_status"] == QuoteStatus.FAILED.value
+    assert draft["verification_attempts"] == 3
+    assert "clause_span" in (draft["verification_note"] or "")
+    # The circular quote did resolve; the clause quote has no offsets.
+    assert draft["circular_span_start"] is not None
+    assert draft["clause_span_start"] is None
+    assert draft["unlocated_quote"] == "margin is optional for retail clients"
+
+
+@pytest.mark.asyncio
+async def test_schema_violation_gets_one_repair() -> None:
+    gateway = ScriptedGateway('{"impact_type": "MAYBE"}', _verdict())
+    outcome = await judge_and_verify(TASK, CLAUSE, _ctx(gateway))
+    assert outcome.draft is not None
+    assert outcome.draft["quote_status"] == QuoteStatus.VERIFIED.value
+    assert "Repair required" in gateway.prompts[1]
+
+
+@pytest.mark.asyncio
+async def test_a_second_schema_violation_fails_the_task() -> None:
+    gateway = ScriptedGateway("not json", "still not json")
+    outcome = await judge_and_verify(TASK, CLAUSE, _ctx(gateway))
+    assert outcome.draft is None and outcome.failed
+
+
+@pytest.mark.asyncio
+async def test_a_refusal_fails_the_task() -> None:
+    outcome = await judge_and_verify(TASK, CLAUSE, _ctx(ScriptedGateway("<refused>")))
+    assert outcome.draft is None and outcome.failed
+
+
+@pytest.mark.asyncio
+async def test_a_transient_provider_error_fails_only_the_task() -> None:
+    gateway = ScriptedGateway(GatewayError("429", code="rate_limited"))
+    outcome = await judge_and_verify(TASK, CLAUSE, _ctx(gateway))
+    assert outcome.draft is None and outcome.failed
+
+
+@pytest.mark.asyncio
+async def test_a_credential_error_fails_the_run() -> None:
+    gateway = ScriptedGateway(GatewayError("bad key", code="invalid_api_key"))
+    with pytest.raises(GatewayError):
+        await judge_and_verify(TASK, CLAUSE, _ctx(gateway))
+
+
+@pytest.mark.asyncio
+async def test_a_spent_budget_stops_further_calls() -> None:
+    bad = _verdict(circular_span="not in the obligation")
+    gateway = ScriptedGateway(bad, bad, bad)
+    ctx = _ctx(gateway, max_calls=1)
+    outcome = await judge_and_verify(TASK, CLAUSE, ctx)
+
+    assert len(gateway.prompts) == 1, "no call may be made past the budget"
+    assert ctx.budget.exhausted
+    # The one judgement that was made is kept, marked unverified.
+    assert outcome.draft is not None
+    assert outcome.draft["quote_status"] == QuoteStatus.FAILED.value
+
+
+def test_a_no_candidate_finding_claims_no_judgement() -> None:
+    ranked = [RankedClause(1, "C.5", "### C.5 Evidence retention\nRetain.", 0, 0.12)]
+    draft = _no_candidate_draft(TASK, ranked, 0.35)
+    assert draft["impact_type"] == ImpactType.NO_MATCH.value
+    assert draft["quote_status"] == QuoteStatus.NOT_APPLICABLE.value
+    assert draft["confidence"] is None, "no model produced a score"
+    assert "0.35" in draft["rationale"] and "C.5" in draft["rationale"]
+
+
+# --- budget -------------------------------------------------------------------
+
+
+def test_call_budget_is_exact_under_thread_contention() -> None:
+    budget = CallBudget(max_calls=10, max_tokens=10**9)
+    granted: list[bool] = []
+    lock = threading.Lock()
+
+    def worker() -> None:
+        for _ in range(5):
+            try:
+                budget.acquire()
+                ok = True
+            except BudgetExhausted:
+                ok = False
+            with lock:
+                granted.append(ok)
+
+    threads = [threading.Thread(target=worker) for _ in range(10)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert granted.count(True) == 10
+    assert "Call budget" in (budget.exhausted_reason or "")
+
+
+def test_token_budget_refuses_the_next_call_and_counts_unpriced_calls() -> None:
+    budget = CallBudget(max_calls=100, max_tokens=50)
+    budget.acquire()
+    budget.record(
+        LLMResponse("x", "m", "p", tokens_in=40, tokens_out=20, cost_usd=None, latency_ms=1)
+    )
+    with pytest.raises(BudgetExhausted, match="Token budget"):
+        budget.acquire()
+    assert budget.unpriced_calls == 1
+    assert budget.cost_usd == 0.0
 
 
 def test_limits_are_configured_not_hardcoded() -> None:
-    settings = get_settings()
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
     assert settings.max_verification_retries >= 1
+    assert settings.max_assessment_calls > 0
     assert settings.max_assessment_tokens > 0
     assert settings.assessment_timeout_seconds > 0
 
 
 def test_agent_has_no_external_action_tools() -> None:
-    """Security property: retrieval is the agent's only capability.
+    """Security property: the graph's only capabilities are reads and judgements.
 
     Nothing a prompt injection in a circular could reach can take an action
     outside this database.
     """
     import app.ai.graph.nodes as nodes
 
-    exported = [name for name in dir(nodes) if not name.startswith("_")]
+    exported = {name for name in dir(nodes) if not name.startswith("_")}
     forbidden = {"requests", "httpx", "subprocess", "os", "send_email", "post", "write_file"}
-    assert not (forbidden & set(exported)), (
-        f"agent node module exposes action-capable names: {forbidden & set(exported)}"
-    )
+    assert not (forbidden & exported)

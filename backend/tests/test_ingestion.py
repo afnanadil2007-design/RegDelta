@@ -12,11 +12,12 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from app.db.models.enums import ExtractionMethod
 from sqlalchemy import text
 
+from app.ai.extraction.segment import segment_pages
 from app.ai.gateway import GatewayError, LLMGateway, LLMResponse
 from app.core.config import get_settings
+from app.db.models.enums import ExtractionMethod
 from app.repositories.circulars import ChunkRepository, CircularRepository, ParagraphRepository
 from app.services.ingestion import CircularMeta, ingest_batch, ingest_pdf
 from tests.fixtures import ALL_FIXTURES, write_fixture_pdf, write_scanned_pdf
@@ -261,3 +262,73 @@ def test_settings_expose_the_ingestion_knobs() -> None:
     assert 0.0 < settings.text_quality_threshold < 1.0
     assert settings.vision_dpi == 200
     assert settings.scrape_delay_seconds >= 2.0
+
+
+@pytest.mark.asyncio
+async def test_a_changed_file_for_a_stored_number_is_a_conflict(session, tmp_path: Path) -> None:
+    """A re-issued PDF must not create a second copy or silently overwrite."""
+    fixture = ALL_FIXTURES[0]
+    meta = _meta(fixture, 0)
+    first = write_fixture_pdf(fixture, tmp_path / "v1")
+    assert await ingest_pdf(session, first, meta, gateway=FakeGateway()) is not None
+    await session.commit()
+
+    changed = tmp_path / "v2" / "changed.pdf"
+    changed.parent.mkdir()
+    import pymupdf
+
+    doc = pymupdf.open()
+    doc.new_page().insert_text((72, 72), "1. A corrected version of the circular.")
+    doc.save(str(changed))
+    doc.close()
+
+    report = await ingest_batch(session, [(changed, meta)], gateway=FakeGateway())
+    assert report.ingested == [] and report.failed == []
+    ((number, reason),) = report.conflicts
+    assert number == meta.circular_number
+    assert "different file" in reason
+
+
+@pytest.mark.asyncio
+async def test_unicode_offsets_agree_between_python_and_postgres(session) -> None:
+    """Offsets are code points on both sides, including astral-plane characters.
+
+    JavaScript strings index UTF-16 units, so the frontend converts; here the
+    stored offsets themselves must slice identically in Python and SQL.
+    """
+    from app.db.models.corpus import Circular, Paragraph
+    from app.repositories.circulars import CircularRepository, ParagraphRepository
+
+    source = "Fees in ₹ and 𝟏𝟎 units — “quoted”.\n\nSecond paragraph ﬁnal."
+    full_text, segmented = segment_pages([(1, source, ExtractionMethod.TEXT, 1.0)])
+    circular = await CircularRepository(session).add(
+        Circular(
+            circular_number=_unique("SEBI/HO/TEST/UNICODE/2024/1"),
+            title="Unicode fixture",
+            full_text=full_text,
+        )
+    )
+    paragraphs = await ParagraphRepository(session).add_all(
+        [
+            Paragraph(
+                circular_id=circular.id,
+                order_index=p.order_index,
+                text=p.text,
+                char_start=p.char_start,
+                char_end=p.char_end,
+            )
+            for p in segmented
+        ]
+    )
+    for paragraph in paragraphs:
+        sliced = (
+            await session.execute(
+                text(
+                    "SELECT substr(c.full_text, p.char_start + 1, p.char_end - p.char_start) "
+                    "FROM paragraphs p JOIN circulars c ON c.id = p.circular_id WHERE p.id = :id"
+                ),
+                {"id": paragraph.id},
+            )
+        ).scalar_one()
+        assert sliced == paragraph.text == full_text[paragraph.char_start : paragraph.char_end]
+    assert "ﬁ" not in full_text and "final" in full_text

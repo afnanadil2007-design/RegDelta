@@ -1,8 +1,10 @@
 {
-  "git_sha": "unknown",
-  "mode": "hybrid_rerank",
-  "recall@10": 0.76,
-  "recall@5": 0.7,
-  "mrr": 0.5661,
-  "n_queries": 50
+  "mode": "hybrid",
+  "gold_sha256": "2ca4eefa6b71b627d06bae90ddb24da50b6277fa0df2b019875cf87d38ccbc72",
+  "queries": 244,
+  "recall@10": 0.9713,
+  "mrr@10": 0.5031,
+  "measured_at": "6c2cb18a56836e7ba53ae4735439432036f9afee",
+  "measured_dirty_digest": "cce00134d29e91390d4950aae553463e1dbe23d2b25e95d4119be2d0b774b382",
+  "corpus": "python -m ingestion.generate_corpus --count 60 (CI corpus)"
 }
